@@ -44,3 +44,18 @@ src/components/       ui (Screen, Button, Toggle, banner, badges), SignaturePad
 - `eas build -p android --profile production` → AAB for Play Console.
 - iOS: requires an Apple Developer account; `eas build -p ios`. Not yet tested.
 Set the real API URLs in `eas.json` before building. Never point a production build at localhost.
+
+## Building an APK locally on Windows
+React Native's native build creates file paths longer than 260 characters, which fails on Windows unless long paths are enabled. One-time, in an **elevated** PowerShell:
+```
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force
+```
+Then (short path recommended; `C:\sm` is a copy of this folder used only for building):
+```
+npx expo prebuild --platform android --no-install
+cd android
+.\gradlew.bat assembleRelease --no-daemon
+# APK: android\app\build\outputs\apk\release\app-release.apk (signed with the debug keystore — internal testing only)
+```
+`reactNativeArchitectures=arm64-v8a,x86_64` in `android/gradle.properties` halves build time (phones + emulator).
+Alternative without a local SDK: the `android-apk` GitHub Actions workflow builds on Linux and uploads the APK as an artifact.

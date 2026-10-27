@@ -1,0 +1,35 @@
+name: android-apk
+
+# Builds a release APK (signed with the debug keystore, for internal testing) on Linux and uploads it as an artifact.
+# Run manually from the Actions tab: choose the API URL the app should talk to.
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "EXPO_PUBLIC_API_URL baked into the app"
+        required: true
+        default: "http://192.168.1.21:5182"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: mobile } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - name: Generate native project
+        run: npx expo prebuild --platform android --no-install
+        env: { EXPO_PUBLIC_API_URL: "${{ inputs.api_url }}", EXPO_PUBLIC_SUPABASE_URL: https://rgzwoynszfsvwpsimfzz.supabase.co, EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_fxp-nExJJkQVPQGQCY2oUg_hnBBIJHt }
+      - name: Build release APK
+        run: cd android && ./gradlew assembleRelease --no-daemon -q
+        env: { EXPO_PUBLIC_API_URL: "${{ inputs.api_url }}", EXPO_PUBLIC_SUPABASE_URL: https://rgzwoynszfsvwpsimfzz.supabase.co, EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_fxp-nExJJkQVPQGQCY2oUg_hnBBIJHt }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solar-maintenance-apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
