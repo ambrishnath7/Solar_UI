@@ -1,0 +1,35 @@
+name: frontend
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  admin-web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: admin-web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm, cache-dependency-path: admin-web/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc -b
+      - run: npm run build
+        env:
+          VITE_API_URL: https://example.invalid
+          VITE_SUPABASE_URL: https://rgzwoynszfsvwpsimfzz.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable_fxp-nExJJkQVPQGQCY2oUg_hnBBIJHt
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: mobile } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx expo export --platform android --output-dir /tmp/export
+        env: { EXPO_PUBLIC_API_URL: https://example.invalid, EXPO_PUBLIC_SUPABASE_URL: https://rgzwoynszfsvwpsimfzz.supabase.co, EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_fxp-nExJJkQVPQGQCY2oUg_hnBBIJHt }
