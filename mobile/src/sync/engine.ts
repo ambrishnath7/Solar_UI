@@ -11,13 +11,14 @@ import { clientsCache, drafts, type Draft } from '../db'
  * A draft is never deleted by the engine.
  */
 let running = false
+let queued = false
 let timer: ReturnType<typeof setTimeout> | null = null
 const MAX_ATTEMPTS = 8
 const backoff = (n: number) => Math.min(10 * 60_000, 5000 * 2 ** Math.max(0, n - 1))
 
 export function startSyncEngine() {
   const unsubNet = NetInfo.addEventListener(s => {
-    const online = !!s.isConnected && s.isInternetReachable !== false
+    const online = !!s.isConnected && s.isInternetReachable === true
     syncStore.set({ net: online ? 'online' : 'offline' })
     if (online) void runSync()
   })
@@ -29,19 +30,25 @@ export function startSyncEngine() {
 export function scheduleSync(ms = 1500) { if (timer) clearTimeout(timer); timer = setTimeout(() => void runSync(), ms) }
 
 export async function runSync(): Promise<void> {
-  if (running) return
+  if (running) {
+    queued = true
+    return
+  }
   if (syncStore.get().net === 'offline') return
   running = true
   syncStore.set({ syncing: true })
   try {
-    const now = Date.now()
-    for (const d of await drafts.pending()) {
-      if (d.nextAttemptAt && new Date(d.nextAttemptAt).getTime() > now) continue
-      await syncOne(d)
-    }
-    try { await clientsCache.put(await api.clients()) } catch { /* offline; cached list stays */ }
-    const failed = (await drafts.all()).filter(x => x.syncState === 'failed').length
-    syncStore.set({ failed, lastSyncAt: new Date().toISOString() })
+    do {
+      queued = false
+      const now = Date.now()
+      for (const d of await drafts.pending()) {
+        if (d.nextAttemptAt && new Date(d.nextAttemptAt).getTime() > now) continue
+        await syncOne(d)
+      }
+      try { await clientsCache.put(await api.clients()) } catch { /* offline; cached list stays */ }
+      const failed = (await drafts.all()).filter(x => x.syncState === 'failed').length
+      syncStore.set({ failed, lastSyncAt: new Date().toISOString() })
+    } while (queued && syncStore.get().net !== 'offline')
   } finally {
     running = false
     syncStore.set(s => ({ syncing: false, tick: s.tick + 1 }))
@@ -50,6 +57,10 @@ export async function runSync(): Promise<void> {
 
 async function syncOne(d: Draft): Promise<void> {
   try {
+    const freshDraft = await drafts.get(d.localId)
+    if (!freshDraft) return
+    d = freshDraft
+
     await drafts.patch(d.localId, { syncState: d.submitRequested ? 'submitting' : 'syncing', lastError: null })
     let serverId = d.serverId; let version = d.version
 
@@ -57,9 +68,7 @@ async function syncOne(d: Draft): Promise<void> {
       const r = await api.reports.create(d.localId, d.clientId, d.fields)   // 201 new or 200 existing (idempotent)
       serverId = r.id; version = r.version
       if (r.status !== 'draft') { await markSubmittedElsewhere(d, r.reportRef, r.fields.nextVisitDate ?? null, serverId, version); return }
-      await drafts.patch(d.localId, { serverId, version, dirty: d.dirty && r.version !== version ? 1 : 0 })
-      // the create carried the current fields; remaining dirty state only if fields changed since (handled below by re-reading)
-      await drafts.patch(d.localId, { dirty: 0 })
+      await drafts.patch(d.localId, { serverId, version, dirty: 0 })
     } else if (d.dirty) {
       const r = await api.reports.update(serverId, version, d.fields)
       version = r.version

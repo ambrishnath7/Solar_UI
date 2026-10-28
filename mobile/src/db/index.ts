@@ -57,7 +57,7 @@ export const drafts = {
   },
   /** Autosave: stores fields, marks dirty. Never touches sync bookkeeping other than dirty/syncState. */
   async saveFields(localId: string, fields: ReportFields) {
-    await (await db()).runAsync(`update drafts set fields = ?, dirty = 1, localUpdatedAt = ?, syncState = case when syncState in ('submitted','submitting') then syncState else 'local' end where localId = ?`,
+    await (await db()).runAsync(`update drafts set fields = ?, dirty = 1, localUpdatedAt = ?, syncState = case when syncState in ('submitted','submitting','conflict') then syncState else 'local' end where localId = ?`,
       JSON.stringify(fields), new Date().toISOString(), localId)
   },
   async patch(localId: string, p: Partial<Omit<Draft, 'fields'>> & { fields?: ReportFields }) {

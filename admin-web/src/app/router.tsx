@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, Users, Wrench } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, supabase } from '../lib/api'
 import { Button, cx } from '../components/ui'
 import LoginPage from '../features/auth/LoginPage'
@@ -18,15 +18,30 @@ import AmcPage from '../features/amc/AmcPage'
 import DefectSummaryPage from '../features/defects/DefectSummaryPage'
 import SettingsPage from '../features/settings/SettingsPage'
 
-export function useMe() {
-  return useQuery({ queryKey: ['me'], queryFn: api.me, retry: false, staleTime: 5 * 60_000 })
+export function useMe(enabled = true) {
+  return useQuery({ queryKey: ['me'], queryFn: api.me, retry: false, staleTime: 5 * 60_000, enabled })
 }
 
 function AdminGuard() {
   const [session, setSession] = useState<boolean | null>(null)
-  const me = useMe()
   const navigate = useNavigate()
-  if (session === null) supabase.auth.getSession().then(({ data }) => setSession(!!data.session))
+
+  useEffect(() => {
+    const hasDev = !!localStorage.getItem('solar_dev_token')
+    if (hasDev) {
+      setSession(true)
+      return
+    }
+    supabase.auth.getSession().then(({ data }) => setSession(!!data.session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      const dev = !!localStorage.getItem('solar_dev_token')
+      setSession(dev || !!s)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const me = useMe(session === true)
+
   if (session === null) return <Splash />
   if (!session) return <Navigate to="/login" replace />
   if (me.isLoading) return <Splash />
@@ -34,7 +49,7 @@ function AdminGuard() {
     return <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center">
       <ShieldCheck className="h-10 w-10 text-red-600" /><h1 className="text-lg font-semibold">This account is not an administrator</h1>
       <p className="max-w-md text-sm text-slate-600">{me.isError ? 'The API rejected this login. The user may not be registered in the Solar system.' : 'Engineer accounts use the mobile app.'}</p>
-      <Button variant="secondary" onClick={async () => { await supabase.auth.signOut(); navigate('/login') }}>Sign out</Button></div>
+      <Button variant="secondary" onClick={async () => { localStorage.removeItem('solar_dev_token'); await supabase.auth.signOut(); navigate('/login') }}>Sign out</Button></div>
   }
   return <Shell />
 }
@@ -57,7 +72,7 @@ function Shell() {
   const [open, setOpen] = useState(false)
   const me = useMe()
   const navigate = useNavigate()
-  const signOut = async () => { await supabase.auth.signOut(); navigate('/login') }
+  const signOut = async () => { localStorage.removeItem('solar_dev_token'); await supabase.auth.signOut(); navigate('/login') }
   const links = nav.map(n => <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
     className={({ isActive }) => cx('flex items-center gap-3 rounded-md px-3 py-2 text-sm', isActive ? 'bg-amber-100 font-medium text-amber-900' : 'text-slate-700 hover:bg-slate-100')}><n.icon className="h-4 w-4" />{n.label}</NavLink>)
   return <div className="flex min-h-screen">

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -36,7 +36,7 @@ export default function ReportDetailPage() {
     <div className="grid gap-4 xl:grid-cols-3">
       <div className="space-y-4 xl:col-span-2">
         <Card><div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm md:grid-cols-3">
-          {[['Client', <Link to={`/clients/${r.clientId}`} className="text-amber-700 hover:underline">{r.clientName}</Link>], ['Engineer', r.engineerName], ['Visit date', fmtDate(f.visitDate)], ['Previous maintenance', fmtDate(f.previousMaintenanceDate)], ['Next visit date', fmtDate(f.nextVisitDate)], ['Technicians', f.technicianCount ?? '—'], ['Submitted', fmtDateTime(r.submittedAt)], ['Defects', r.defectCount], ['Signatures', `${r.hasEngineerSignature ? 'engineer ✓' : 'engineer ✗'}, ${r.hasClientSignature ? 'client ✓' : 'client ✗'}${f.clientRepName ? ` (${f.clientRepName})` : ''}`]]
+          {[['Client', <Link key="client-link" to={`/clients/${r.clientId}`} className="text-amber-700 hover:underline">{r.clientName}</Link>], ['Engineer', r.engineerName], ['Visit date', fmtDate(f.visitDate)], ['Previous maintenance', fmtDate(f.previousMaintenanceDate)], ['Next visit date', fmtDate(f.nextVisitDate)], ['Technicians', f.technicianCount ?? '—'], ['Submitted', fmtDateTime(r.submittedAt)], ['Defects', r.defectCount], ['Signatures', `${r.hasEngineerSignature ? 'engineer ✓' : 'engineer ✗'}, ${r.hasClientSignature ? 'client ✓' : 'client ✗'}${f.clientRepName ? ` (${f.clientRepName})` : ''}`]]
             .map(([k, v]) => <div key={k as string} className="border-b border-slate-100 py-1"><div className="text-xs text-slate-500">{k}</div><div>{v}</div></div>)}</div></Card>
         {SECTIONS.map(s => <Card key={s.title}><h2 className="mb-2 font-semibold">{s.title}</h2>
           <table className="w-full text-sm">{s.rows.map(row => { const v = f[row.key] as string | number | null | undefined; return <tr key={row.key} className="border-b border-slate-100"><td className="py-1.5 text-slate-700">{row.label}</td><td className="py-1.5 text-right">
@@ -52,20 +52,67 @@ export default function ReportDetailPage() {
 }
 
 function PdfFrame({ id }: { id: string }) {
-  const q = useQuery({ queryKey: ['pdf', id], queryFn: () => api.reports.pdfBlob(id).then(b => URL.createObjectURL(b)), staleTime: 0, gcTime: 0 })
-  if (q.isLoading) return <div className="h-[70vh] animate-pulse rounded bg-slate-100" />
-  if (q.isError) return <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />
-  return <iframe title="Report PDF" src={q.data} className="h-[70vh] w-full rounded border border-slate-200" />
+  const [url, setUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    let blobUrl: string | null = null
+    setLoading(true)
+    setError(null)
+    api.reports.pdfBlob(id)
+      .then(blob => {
+        if (!active) return
+        blobUrl = URL.createObjectURL(blob)
+        setUrl(blobUrl)
+      })
+      .catch(e => {
+        if (!active) return
+        setError(errorMessage(e))
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }, [id])
+
+  if (loading) return <div className="h-[70vh] animate-pulse rounded bg-slate-100" />
+  if (error || !url) return <ErrorState message={error ?? 'Failed to load PDF'} onRetry={() => setUrl(null)} />
+  return <iframe title="Report PDF" src={url} className="h-[70vh] w-full rounded border border-slate-200" />
 }
 
 function CorrectionForm({ report, onDone, onCancel }: { report: Report; onDone: () => void; onCancel: () => void }) {
-  const { register, handleSubmit } = useForm<ReportFields & { reason: string }>({ defaultValues: { ...report.fields, reason: '' } })
+  const { register, handleSubmit, formState: { errors } } = useForm<ReportFields & { reason: string }>({
+    defaultValues: { ...report.fields, reason: '' }
+  })
   const [err, setErr] = useState<string | null>(null)
-  const m = useMutation({ mutationFn: (d: ReportFields & { reason: string }) => { const { reason, ...fields } = d; return api.reports.correct(report.id, { version: report.version, reason, fields: clean(fields) }) }, onSuccess: onDone, onError: e => setErr(errorMessage(e)) })
+  const m = useMutation({
+    mutationFn: (d: ReportFields & { reason: string }) => {
+      if (d.nextVisitDate && d.visitDate && d.nextVisitDate < d.visitDate) {
+        throw new Error('Next visit date must be on or after the visit date.')
+      }
+      const { reason, ...fields } = d
+      return api.reports.correct(report.id, { version: report.version, reason, fields: clean(fields) })
+    },
+    onSuccess: onDone,
+    onError: e => setErr(errorMessage(e))
+  })
   return <form onSubmit={handleSubmit(d => m.mutate(d))} className="space-y-3">
     <p className="text-sm text-slate-600">Corrections are recorded in the audit log with your user id and reason. The report status becomes <b>corrected</b> and the PDF is regenerated.</p>
-    <Field label="Reason for correction *"><Textarea {...register('reason', { required: true })} placeholder="e.g. Fan status was recorded incorrectly" /></Field>
-    <div className="grid gap-2 md:grid-cols-3"><Field label="Visit date"><Input type="date" {...register('visitDate')} /></Field><Field label="Technicians"><Input type="number" {...register('technicianCount')} /></Field><Field label="Next visit date"><Input type="date" {...register('nextVisitDate')} /></Field></div>
+    <Field label="Reason for correction *" error={errors.reason?.message}>
+      <Textarea {...register('reason', { required: 'Reason is required', minLength: { value: 5, message: 'Reason must be at least 5 characters' } })} placeholder="e.g. Fan status was recorded incorrectly" />
+    </Field>
+    <div className="grid gap-2 md:grid-cols-4">
+      <Field label="Visit date"><Input type="date" {...register('visitDate', { required: 'Visit date is required' })} /></Field>
+      <Field label="Previous visit"><Input type="date" {...register('previousMaintenanceDate')} /></Field>
+      <Field label="Technicians"><Input type="number" {...register('technicianCount')} /></Field>
+      <Field label="Next visit date"><Input type="date" {...register('nextVisitDate')} /></Field>
+    </div>
+    <Field label="Client representative name"><Input {...register('clientRepName')} placeholder="e.g. Mr. Sharma" /></Field>
     <div className="max-h-[50vh] space-y-3 overflow-y-auto rounded border border-slate-200 p-3">
       {SECTIONS.map(s => <div key={s.title}><h3 className="mb-1 text-sm font-semibold">{s.title}</h3><div className="grid gap-2 md:grid-cols-2">
         {s.rows.map(row => <Field key={row.key} label={row.label}>{row.type === 'num' ? <Input type="number" step="0.01" {...register(row.key)} /> : <Select {...register(row.key)}><option value="">—</option>{(row.type === 'yn' ? ['YES', 'NO'] : ['GOOD', 'DEFECT']).map(o => <option key={o} value={o}>{o}</option>)}</Select>}</Field>)}

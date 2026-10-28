@@ -8,7 +8,8 @@ import { api, errorMessage } from '../../lib/api'
 import type { Engineer } from '../../lib/types'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Select, Skeleton, Table, fmtDate } from '../../components/ui'
 
-const createSchema = z.object({ name: z.string().trim().min(1, 'Name is required'), email: z.string().trim().email('Invalid email'), phone: z.string().optional(), employeeCode: z.string().optional(), password: z.string().min(8, 'At least 8 characters') })
+const optStr = z.string().trim().optional().or(z.literal('')).transform(v => (v ? v : null))
+const createSchema = z.object({ name: z.string().trim().min(1, 'Name is required'), email: z.string().trim().email('Invalid email'), phone: optStr, employeeCode: optStr, password: z.string().min(8, 'At least 8 characters') })
 const updateSchema = createSchema.pick({ name: true, phone: true, employeeCode: true })
 
 export default function EngineersPage() {

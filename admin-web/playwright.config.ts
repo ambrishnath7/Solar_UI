@@ -8,4 +8,10 @@ export default defineConfig({
   use: { baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173', headless: true, screenshot: 'only-on-failure' },
   reporter: [['list']],
   outputDir: 'e2e/results',
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+  },
 })

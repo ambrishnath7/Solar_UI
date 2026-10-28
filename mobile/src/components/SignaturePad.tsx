@@ -10,11 +10,10 @@ export function SignaturePad({ title, fileName, onSaved, existingUri }: { title:
   const ref = useRef<SignatureViewRef>(null)
   const handleOK = async (dataUrl: string) => {
     const b64 = dataUrl.replace(/^data:image\/png;base64,/, '')
-    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
     const file = new File(Paths.document, fileName)
     if (file.exists) file.delete()
     file.create()
-    await file.write(bytes)
+    await file.write(b64, { encoding: 'base64' })
     onSaved(file.uri)
   }
   const style = `.m-signature-pad { box-shadow: none; border: none; } .m-signature-pad--body { border: none; } .m-signature-pad--footer { display: none; } body,html { background: #fff; }`

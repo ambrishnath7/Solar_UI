@@ -10,14 +10,36 @@ export const API_URL: string = import.meta.env.VITE_API_URL
 
 export const http = axios.create({ baseURL: API_URL })
 http.interceptors.request.use(async (config) => {
+  const devToken = localStorage.getItem('solar_dev_token')
+  if (devToken) {
+    config.headers.Authorization = `Bearer ${devToken}`
+    return config
+  }
   const { data } = await supabase.auth.getSession()
   if (data.session?.access_token) config.headers.Authorization = `Bearer ${data.session.access_token}`
   return config
 })
 http.interceptors.response.use(undefined, async (error: AxiosError) => {
   if (error.response?.status === 401 && !(error.config as { _retried?: boolean })._retried) {
-    const { data } = await supabase.auth.refreshSession()
-    if (data.session) { (error.config as { _retried?: boolean })._retried = true; return http(error.config!) }
+    if (localStorage.getItem('solar_dev_token')) {
+      localStorage.removeItem('solar_dev_token')
+      window.location.href = '/login'
+      return Promise.reject(error)
+    }
+    try {
+      const { data } = await supabase.auth.refreshSession()
+      if (data.session) {
+        (error.config as { _retried?: boolean })._retried = true
+        error.config!.headers.Authorization = `Bearer ${data.session.access_token}`
+        return http(error.config!)
+      }
+    } catch {
+      // refresh failed
+    }
+    await supabase.auth.signOut()
+    if (window.location.pathname !== '/login') {
+      window.location.href = `/login?from=${encodeURIComponent(window.location.pathname + window.location.search)}`
+    }
   }
   return Promise.reject(error)
 })

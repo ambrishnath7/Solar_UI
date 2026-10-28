@@ -16,7 +16,11 @@ export default function Success() {
   const share = async () => {
     if (!d.serverId) return
     setBusy(true); setMsg(null)
-    try { const file = await api.reports.downloadPdf(d.serverId, `${d.reportRef ?? 'report'}.pdf`); await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: `Share ${d.reportRef}` }) }
+    try {
+      if (!(await Sharing.isAvailableAsync())) { setMsg('Sharing is not supported on this device'); return }
+      const file = await api.reports.downloadPdf(d.serverId, `${d.reportRef ?? 'report'}.pdf`)
+      await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: `Share ${d.reportRef}` })
+    }
     catch (e) { setMsg(errorMessage(e)) } finally { setBusy(false) }
   }
   const finish = async () => { await drafts.remove(localId); router.replace('/(app)') }   // only here, after the server confirmed submission

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Text, View } from 'react-native'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useDraft } from '../../../../../forms/useDraft'
@@ -6,6 +6,32 @@ import { headerComplete, sectionComplete } from '../../../../../forms/schema'
 import { SECTION_8_TITLE, SECTIONS, addDays, type ReportFields } from '../../../../../lib/types'
 import { Button, Field, Input, Loading, Progress, Screen, StateBadge, Toggle } from '../../../../../components/ui'
 import { colors, font, space } from '../../../../../theme'
+
+function DecimalInput({ value, editable, onChange, placeholder }: { value: number | null | undefined; editable: boolean; onChange: (v: number | null) => void; placeholder?: string }) {
+  const [text, setText] = useState(value == null ? '' : String(value))
+  useEffect(() => {
+    const parsed = text.trim() === '' ? null : Number(text)
+    if (parsed !== value && !text.endsWith('.')) {
+      setText(value == null ? '' : String(value))
+    }
+  }, [value])
+  return (
+    <Input
+      value={text}
+      editable={editable}
+      keyboardType="decimal-pad"
+      placeholder={placeholder}
+      onChangeText={v => {
+        setText(v)
+        if (v.trim() === '') onChange(null)
+        else {
+          const n = Number(v)
+          if (!isNaN(n)) onChange(n)
+        }
+      }}
+    />
+  )
+}
 
 const num = (v: string): number | null => (v.trim() === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null)
 
@@ -19,7 +45,7 @@ export default function SectionScreen() {
   if (loading || !draft || !fields) return <Screen><Loading /></Screen>
   const locked = draft.syncState === 'submitted' || draft.syncState === 'submitting'
   const done = [1, 2, 3, 4, 5, 6, 7, 8].map(i => sectionComplete(i, fields))
-  const go = async (to: number) => { await flush(); if (to > 8) router.push(`/(app)/reports/${localId}/signatures`); else router.push(`/(app)/reports/${localId}/section/${to}`) }
+  const go = async (to: number) => { await flush(); if (to > 8) router.push(`/(app)/reports/${localId}/signatures`); else router.replace(`/(app)/reports/${localId}/section/${to}`) }
   const f = fields
 
   return <Screen footer={<View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -39,7 +65,7 @@ export default function SectionScreen() {
     {section && <>
       {section.rows.map(r => <Field key={r.key} label={r.label}>
         {r.type === 'num'
-          ? <Input value={f[r.key] == null ? '' : String(f[r.key])} editable={!locked} keyboardType="decimal-pad" onChangeText={v => setFields({ [r.key]: num(v) } as Partial<ReportFields>)} placeholder="0" />
+          ? <DecimalInput value={f[r.key] as number | null | undefined} editable={!locked} onChange={v => setFields({ [r.key]: v } as Partial<ReportFields>)} placeholder="0" />
           : <Toggle value={f[r.key] as string | null} options={r.type === 'yn' ? ['YES', 'NO'] : ['GOOD', 'DEFECT']} onChange={v => { if (!locked) setFields({ [r.key]: v } as Partial<ReportFields>) }} />}
       </Field>)}
       <Field label={section.remarksLabel ?? 'Remarks'}><Input value={(f[section.remarks] as string) ?? ''} editable={!locked} multiline onChangeText={v => setFields({ [section.remarks]: v } as Partial<ReportFields>)} placeholder="Optional" /></Field>

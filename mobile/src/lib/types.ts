@@ -65,6 +65,25 @@ export const SECTIONS: SectionDef[] = [
 ]
 export const SECTION_8_TITLE = 'Observations and Issues'
 
-export const addDays = (iso: string, days: number) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10) }
+export const addDays = (iso: string, days: number) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return todayIso()
+  const d = new Date(iso + 'T00:00:00')
+  if (isNaN(d.getTime())) return todayIso()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
 export const todayIso = () => new Date().toISOString().slice(0, 10)
 export const fmtDate = (d?: string | null) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
+
+export function generateUuid(): string {
+  const bytes = new Uint8Array(16)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes)
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256)
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}

@@ -38,7 +38,8 @@ export const api = {
     signature: async (id: string, kind: 'engineer' | 'client', fileUri: string) => {
       const form = new FormData()
       form.append('file', { uri: fileUri, name: `${kind}.png`, type: 'image/png' } as unknown as Blob)
-      return http.post<Report>(`/reports/${id}/signatures/${kind}`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+      // Do not hardcode Content-Type: multipart/form-data; Axios sets it with the boundary parameter automatically
+      return http.post<Report>(`/reports/${id}/signatures/${kind}`, form).then(r => r.data)
     },
     submit: (id: string, version: number, nextVisitDate?: string | null) => http.post<SubmitResult>(`/reports/${id}/submit`, { version, nextVisitDate }).then(r => r.data),
     /** Downloads the PDF to the cache directory and returns the local file. */

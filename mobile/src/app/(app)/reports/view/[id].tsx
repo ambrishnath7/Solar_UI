@@ -16,7 +16,14 @@ export default function ViewReport() {
   if (q.isLoading) return <Screen><Loading /></Screen>
   if (q.isError || !q.data) return <Screen><Empty text={errorMessage(q.error)} /><Button title="Retry" variant="secondary" onPress={() => q.refetch()} /></Screen>
   const r = q.data; const f = r.fields
-  const share = async () => { setBusy(true); setMsg(null); try { const file = await api.reports.downloadPdf(r.id, `${r.reportRef ?? 'report'}.pdf`); await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf' }) } catch (e) { setMsg(errorMessage(e)) } finally { setBusy(false) } }
+  const share = async () => {
+    setBusy(true); setMsg(null)
+    try {
+      if (!(await Sharing.isAvailableAsync())) { setMsg('Sharing is not supported on this device'); return }
+      const file = await api.reports.downloadPdf(r.id, `${r.reportRef ?? 'report'}.pdf`)
+      await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf' })
+    } catch (e) { setMsg(errorMessage(e)) } finally { setBusy(false) }
+  }
   return <Screen footer={<Button title="Download and share PDF" onPress={share} loading={busy} />}>
     <Title sub={`${r.clientName} · ${r.status.toUpperCase()}`}>{r.reportRef ?? 'Draft'}</Title>
     {msg && <Text style={{ color: colors.danger, marginBottom: 8 }}>{msg}</Text>}

@@ -3,7 +3,7 @@ import { Alert, Text } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { api } from '../../../lib/api'
 import { clientsCache, drafts } from '../../../db'
-import { addDays, fmtDate, todayIso, type Client } from '../../../lib/types'
+import { addDays, fmtDate, generateUuid, todayIso, type Client } from '../../../lib/types'
 import { Button, Card, Loading, Row, Screen, Title } from '../../../components/ui'
 import { colors, font } from '../../../theme'
 
@@ -21,7 +21,7 @@ export default function ClientDetails() {
   const create = async () => {
     if (!c) return
     const visit = todayIso()
-    const d = await drafts.create({ localId: crypto.randomUUID(), clientId: c.id, clientName: c.name, fields: { visitDate: visit, previousMaintenanceDate: c.previousMaintenanceDate ?? null, technicianCount: 1, nextVisitDate: addDays(visit, 90) } })
+    const d = await drafts.create({ localId: generateUuid(), clientId: c.id, clientName: c.name, fields: { visitDate: visit, previousMaintenanceDate: c.previousMaintenanceDate ?? null, technicianCount: 1, nextVisitDate: addDays(visit, 90) } })
     router.replace(`/(app)/reports/${d.localId}/section/1`)
   }
   if (!c) return <Screen><Loading /></Screen>
