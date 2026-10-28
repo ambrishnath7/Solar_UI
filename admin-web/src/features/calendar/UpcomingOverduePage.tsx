@@ -33,7 +33,7 @@ export default function UpcomingOverduePage() {
     </div>
     {q.isLoading ? <Skeleton /> : q.isError ? <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} /> : !q.data?.length ? <EmptyState text={tab === 'overdue' ? 'No overdue visits. 🎉' : `No visits due in the next ${days} days.`} /> :
       <Table rows={q.data} keyOf={r => r.clientId} onRow={r => nav(`/clients/${r.clientId}`)} rowLabel={r => `Open client ${r.clientName}`} cols={[
-        { h: 'Client', cell: r => <span className="font-medium">{r.clientName}</span> }, { h: 'Site', cell: r => r.siteLocation ?? '—' },
+        { h: 'Client', cell: r => <span className="block max-w-[16rem] truncate font-medium" title={r.clientName}>{r.clientName}</span> }, { h: 'Site', cell: r => r.siteLocation ?? '—' },
         { h: 'Due', cell: r => <span className={r.isOverdue ? 'font-semibold text-red-700' : ''}>{fmtDate(r.nextDueDate)}</span> }, { h: 'When', cell: r => dayText(r.nextDueDate) },
         { h: 'Previous', cell: r => fmtDate(r.previousMaintenanceDate) }, { h: 'AMC', cell: r => <Badge tone={amcTone(r.amcStatus)}>{r.amcStatus}</Badge> }]} />}
   </>

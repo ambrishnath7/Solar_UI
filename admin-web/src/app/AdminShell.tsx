@@ -70,17 +70,19 @@ function Shell() {
   const doSignOut = async () => { await signOut(); navigate('/login') }
   const dev = getDevSession()
   const links = nav.map(n => <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
-    className={({ isActive }) => cx('flex items-center gap-3 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400', isActive ? 'bg-amber-100 font-medium text-amber-900' : 'text-slate-700 hover:bg-slate-100')}><n.icon className="h-4 w-4" aria-hidden />{n.label}</NavLink>)
+    className={({ isActive }) => cx('flex items-center gap-3 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500', isActive ? 'bg-sky-100 font-medium text-sky-900' : 'text-slate-700 hover:bg-slate-100')}><n.icon className="h-4 w-4" aria-hidden />{n.label}</NavLink>)
   const devBadge = dev && <div className="mx-3 mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">dev login</div>
   return <div className="flex min-h-screen">
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white p-3 md:flex">
-      <div className="mb-4 px-3 py-2"><div className="text-xs font-semibold uppercase tracking-wider text-amber-700">Solar Maintenance</div><div className="text-sm text-slate-500">Admin</div></div>
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+      <div className="mb-3 bg-gradient-to-br from-sky-600 to-sky-800 px-5 py-4 text-white"><div className="text-lg font-semibold">☀ Solar Maintenance</div><div className="text-sm text-sky-100">Shree Abhi Electricals · Admin</div></div>
+      <div className="flex flex-1 flex-col p-3 pt-0">
       <nav aria-label="Main" className="flex flex-1 flex-col gap-1">{links}</nav>
       <div className="border-t border-slate-200 pt-3 text-xs text-slate-500"><div className="truncate px-3">{me.data?.email}</div>{devBadge}<button type="button" onClick={doSignOut} className="mt-1 flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"><LogOut className="h-4 w-4" aria-hidden />Sign out</button></div>
+      </div>
     </aside>
     <div className="flex min-w-0 flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden"><div className="font-semibold text-amber-700">Solar Maintenance</div>
-        <button type="button" onClick={() => setOpen(o => !o)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" className="rounded p-1 hover:bg-slate-100">{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button></header>
+      <header className="flex items-center justify-between bg-gradient-to-r from-sky-600 to-sky-800 px-4 py-3 text-white md:hidden"><div className="font-semibold">☀ Solar Maintenance</div>
+        <button type="button" onClick={() => setOpen(o => !o)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" className="rounded p-1 hover:bg-white/20">{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button></header>
       {open && <nav id="mobile-nav" aria-label="Main" className="flex flex-col gap-1 border-b border-slate-200 bg-white p-3 md:hidden">{links}<div className="px-3 text-xs text-slate-500">{me.data?.email}</div>{devBadge}<button type="button" onClick={doSignOut} className="flex items-center gap-2 rounded px-3 py-2 text-sm text-slate-700"><LogOut className="h-4 w-4" aria-hidden />Sign out</button></nav>}
       <main className="min-w-0 flex-1 p-4 md:p-6"><Suspense fallback={<Skeleton rows={6} />}><Outlet /></Suspense></main>
     </div>

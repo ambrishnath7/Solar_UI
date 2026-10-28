@@ -40,6 +40,12 @@ test.describe('admin via dev login', () => {
     await page.getByRole('button', { name: 'Save changes' }).click()
     await expect(page.getByRole('heading', { name: `${name} edited` })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole('heading', { name: 'Installation' })).toBeVisible()
+    // Clean up: deactivate the test client so it never shows up in the engineers' client list.
+    const id = page.url().split('/clients/')[1]?.split(/[?#]/)[0]
+    const users = await (await page.request.get(`${API}/dev/users?role=admin`)).json() as { userId: string; email?: string }[]
+    const admin = users.find(u => u.email === ADMIN) ?? users[0]
+    const { accessToken } = await (await page.request.post(`${API}/dev/login`, { data: { userId: admin.userId } })).json() as { accessToken: string }
+    expect((await page.request.post(`${API}/clients/${id}/deactivate`, { headers: { Authorization: `Bearer ${accessToken}` } })).ok()).toBeTruthy()
   })
 
   test('reports: list, open detail, PDF preview renders', async ({ page }) => {

@@ -24,7 +24,7 @@ export default function Dashboard() {
     <Text style={{ color: colors.muted, fontSize: font.small }}>{label}</Text><Text style={{ fontSize: 32, fontWeight: '800', color: tone }}>{value}</Text></Pressable>
 
   return <Screen footer={<Button title="＋  Start maintenance visit" onPress={() => router.push('/(app)/clients')} />}>
-    <Title sub={dash.data ? undefined : dash.isError ? 'Offline — showing what is on this phone' : 'Loading server data…'}>Today</Title>
+    <Title sub={dash.data ? new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) : dash.isError ? 'Offline — showing what is on this phone' : 'Loading server data…'}>Today</Title>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginBottom: space.lg }}>
       {stat("Today's visits", dash.data?.todayVisits ?? '—', () => router.push('/(app)/clients'))}
       {stat('Drafts on phone', open.length, () => router.push('/(app)/drafts'), open.length ? colors.warn : colors.text)}

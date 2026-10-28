@@ -21,6 +21,6 @@ export default function ClientSearch() {
     <FlatList data={list} keyExtractor={c => c.id} ListEmptyComponent={<Empty text={all.length ? 'No client matches.' : 'No clients cached yet. Connect once to download the client list.'} />}
       renderItem={({ item: c }) => <Pressable accessibilityRole="button" onPress={() => router.push(`/(app)/clients/${c.id}`)} style={{ minHeight: 56, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <Text style={{ fontSize: font.large, fontWeight: '700' }}>{c.name}</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: colors.muted, fontSize: font.small }}>{c.siteLocation ?? c.address ?? ''}{c.solarCapacityKwp ? ` · ${c.solarCapacityKwp} kWp` : ''}</Text><Text style={{ color: colors.muted, fontSize: font.small }}>Due {fmtDate(c.nextDueDate)}</Text></View></Pressable>} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: colors.muted, fontSize: font.small }}>{c.siteLocation ?? c.address ?? ''}{c.solarCapacityKwp ? ` · ${c.solarCapacityKwp} kWp` : ''}</Text><Text style={{ color: colors.muted, fontSize: font.small }}>{c.nextDueDate ? `Due ${fmtDate(c.nextDueDate)}` : 'No visit yet'}</Text></View></Pressable>} />
   </Screen>
 }

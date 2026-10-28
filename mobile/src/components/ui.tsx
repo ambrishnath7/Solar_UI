@@ -106,10 +106,11 @@ export function StateBadge({ state }: { state: DraftSyncState }) {
 }
 
 /** Section progress: numbered steps, ✓ when complete. */
-export function Progress({ done, current }: { done: boolean[]; current?: number }) {
+/** Section progress; with onSelect each step is a button that jumps to that section. */
+export function Progress({ done, current, onSelect }: { done: boolean[]; current?: number; onSelect?: (n: number) => void }) {
   return <View style={{ flexDirection: 'row', gap: 4, marginBottom: space.md }} accessibilityLabel={`${done.filter(Boolean).length} of ${done.length} sections complete`}>
-    {done.map((ok, i) => <View key={i} style={{ flex: 1, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: ok ? colors.good : colors.surface, borderWidth: current === i + 1 ? 2 : 1, borderColor: current === i + 1 ? colors.primary : colors.border }}>
-      <Text style={{ fontSize: 13, fontWeight: '800', color: ok ? '#fff' : colors.muted }}>{ok ? '✓' : i + 1}</Text></View>)}
+    {done.map((ok, i) => <Pressable key={i} disabled={!onSelect || current === i + 1} onPress={() => onSelect?.(i + 1)} accessibilityRole={onSelect ? 'button' : undefined} accessibilityLabel={`Section ${i + 1}${ok ? ', complete' : ''}`} hitSlop={6} style={{ flex: 1, height: 36, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: ok ? colors.good : current === i + 1 ? colors.primary : colors.surface, borderWidth: 1, borderColor: ok ? colors.good : current === i + 1 ? colors.primary : colors.border }}>
+      <Text style={{ fontSize: 14, fontWeight: '800', color: ok || current === i + 1 ? '#fff' : colors.muted }}>{ok ? '✓' : i + 1}</Text></Pressable>)}
   </View>
 }
 

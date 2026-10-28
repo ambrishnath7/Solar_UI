@@ -3,8 +3,8 @@ import { AlertCircle, CheckCircle2, Inbox, Loader2, X } from 'lucide-react'
 import { cx, inputCls } from '../lib/format'
 
 export function Button({ variant = 'primary', className, loading, children, type = 'button', ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'ghost'; loading?: boolean }) {
-  const v = { primary: 'bg-amber-600 hover:bg-amber-700 text-white', secondary: 'bg-white border border-slate-300 hover:bg-slate-50 text-slate-800', danger: 'bg-red-600 hover:bg-red-700 text-white', ghost: 'hover:bg-slate-100 text-slate-700' }[variant]
-  return <button type={type} {...p} disabled={p.disabled || loading} aria-busy={loading || undefined} className={cx('inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-50', v, className)}>
+  const v = { primary: 'bg-sky-700 hover:bg-sky-800 text-white', secondary: 'bg-white border border-slate-300 hover:bg-slate-50 text-slate-800', danger: 'bg-red-600 hover:bg-red-700 text-white', ghost: 'hover:bg-slate-100 text-slate-700' }[variant]
+  return <button type={type} {...p} disabled={p.disabled || loading} aria-busy={loading || undefined} className={cx('inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:cursor-not-allowed disabled:opacity-50', v, className)}>
     {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}{children}</button>
 }
 
@@ -20,7 +20,7 @@ export function Textarea(p: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
 /** Inline status message. `error` uses role=alert so screen readers announce it. */
 export function Notice({ tone = 'error', children, className }: { tone?: 'error' | 'success' | 'info'; children: ReactNode; className?: string }) {
   if (!children) return null
-  const t = { error: 'bg-red-50 text-red-700', success: 'bg-emerald-50 text-emerald-700', info: 'bg-amber-50 text-amber-800' }[tone]
+  const t = { error: 'bg-red-50 text-red-700', success: 'bg-emerald-50 text-emerald-700', info: 'bg-sky-50 text-sky-800' }[tone]
   const Icon = tone === 'success' ? CheckCircle2 : AlertCircle
   return <p role={tone === 'error' ? 'alert' : 'status'} className={cx('flex items-start gap-2 rounded p-2 text-sm', t, className)}><Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><span>{children}</span></p>
 }
@@ -34,7 +34,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
 
 export function StatCard({ label, value, tone = 'default', onClick }: { label: string; value: number | string; tone?: 'default' | 'warn' | 'danger' | 'ok'; onClick?: () => void }) {
   const t = { default: 'text-slate-900', warn: 'text-amber-700', danger: 'text-red-600', ok: 'text-emerald-700' }[tone]
-  return <button type="button" onClick={onClick} className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"><div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div><div className={cx('mt-1 text-3xl font-semibold', t)}>{value}</div></button>
+  return <button type="button" onClick={onClick} className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"><div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div><div className={cx('mt-1 text-3xl font-semibold', t)}>{value}</div></button>
 }
 
 export function Badge({ children, tone = 'slate' }: { children: ReactNode; tone?: 'slate' | 'green' | 'red' | 'amber' | 'blue' }) {
@@ -50,12 +50,12 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 
 /** Data table. When `onRow` is set, rows are keyboard-operable (Tab to focus, Enter/Space to open). */
 export function Table<T>({ cols, rows, keyOf, onRow, rowLabel }: { cols: { h: string; cell: (r: T) => ReactNode; className?: string }[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; rowLabel?: (r: T) => string }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white"><table className="min-w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr>{cols.map((c, i) => <th key={c.h || `c${i}`} scope="col" className={cx('px-3 py-2 font-medium', c.className)}>{c.h || <span className="sr-only">Actions</span>}</th>)}</tr></thead>
+  return <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white"><table className="min-w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr>{cols.map((c, i) => <th key={c.h || `c${i}`} scope="col" className={cx('whitespace-nowrap px-3 py-2 font-medium', c.className)}>{c.h || <span className="sr-only">Actions</span>}</th>)}</tr></thead>
     <tbody>{rows.map(r => <tr key={keyOf(r)}
       onClick={onRow ? () => onRow(r) : undefined}
       onKeyDown={onRow ? e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onRow(r) } } : undefined}
       tabIndex={onRow ? 0 : undefined} role={onRow ? 'link' : undefined} aria-label={onRow && rowLabel ? rowLabel(r) : undefined}
-      className={cx('border-t border-slate-100', onRow && 'cursor-pointer hover:bg-amber-50 focus:bg-amber-50 focus:outline-none')}>{cols.map((c, i) => <td key={c.h || `c${i}`} className={cx('px-3 py-2', c.className)}>{c.cell(r)}</td>)}</tr>)}</tbody></table></div>
+      className={cx('border-t border-slate-100', onRow && 'cursor-pointer hover:bg-sky-50 focus:bg-sky-50 focus:outline-none')}>{cols.map((c, i) => <td key={c.h || `c${i}`} className={cx('whitespace-nowrap px-3 py-2', c.className)}>{c.cell(r)}</td>)}</tr>)}</tbody></table></div>
 }
 
 export function Pagination({ page, pageSize, total, onPage }: { page: number; pageSize: number; total: number; onPage: (p: number) => void }) {
@@ -92,7 +92,7 @@ export function Modal({ open, title, onClose, children, wide, closeOnBackdrop = 
   if (!open) return null
   return <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" onClick={closeOnBackdrop ? onClose : undefined}>
     <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cx('mt-8 w-full rounded-lg bg-white shadow-xl focus:outline-none', wide ? 'max-w-3xl' : 'max-w-lg')} onClick={e => e.stopPropagation()}>
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3"><h2 id={titleId} className="font-semibold">{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog" className="rounded p-1 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"><X className="h-5 w-5" /></button></div>
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3"><h2 id={titleId} className="font-semibold">{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog" className="rounded p-1 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"><X className="h-5 w-5" /></button></div>
       <div className="p-4">{children}</div></div></div>
 }
 

@@ -31,7 +31,7 @@ export default function ReportsPage() {
     {list.isLoading ? <Skeleton rows={8} /> : list.isError ? <ErrorState message={errorMessage(list.error)} onRetry={() => list.refetch()} /> : list.data!.items.length === 0 ? <EmptyState text={filtered ? 'No reports match these filters.' : 'No reports yet.'} /> : <>
       <Table rows={list.data!.items} keyOf={r => r.id} onRow={r => nav(`/reports/${r.id}`)} rowLabel={r => `Open report ${r.reportRef ?? 'draft'} for ${r.clientName}`} cols={[
         { h: 'Ref', cell: r => r.reportRef ? <span className="font-mono font-medium">{r.reportRef}</span> : <span className="text-slate-400">draft</span> },
-        { h: 'Client', cell: r => r.clientName }, { h: 'Engineer', cell: r => r.engineerName }, { h: 'Visit', cell: r => fmtDate(r.visitDate) },
+        { h: 'Client', cell: r => <span className="block max-w-[14rem] truncate" title={r.clientName}>{r.clientName}</span> }, { h: 'Engineer', cell: r => r.engineerName }, { h: 'Visit', cell: r => fmtDate(r.visitDate) },
         { h: 'Status', cell: r => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { h: 'AMC', cell: r => <Badge tone={amcTone(r.clientAmcStatus)}>{r.clientAmcStatus}</Badge> },
         { h: 'Defects', cell: r => r.defectCount ? <span className="font-semibold text-red-700">{r.defectCount}</span> : '—', className: 'text-right' }, { h: 'Next visit', cell: r => fmtDate(r.nextVisitDate) }, { h: 'Updated', cell: r => fmtDateTime(r.updatedAt) }]} />
       <Pagination page={page} pageSize={25} total={list.data!.total} onPage={p => set('page', String(p))} /></>}

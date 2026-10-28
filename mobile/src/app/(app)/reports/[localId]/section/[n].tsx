@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Pressable, Text, View } from 'react-native'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useDraft } from '../../../../../forms/useDraft'
 import { draftProblems, headerComplete, LIMITS, sectionComplete } from '../../../../../forms/schema'
@@ -16,6 +16,11 @@ export default function SectionScreen() {
   const [saved, setSaved] = useState(false)
   const section = SECTIONS.find(s => s.n === n)
   useEffect(() => { nav.setOptions({ title: `${n}. ${section?.title ?? SECTION_8_TITLE}` }) }, [n, nav, section])
+  const saveExitRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    nav.setOptions({ headerRight: () => (draft && !locked ? <Pressable accessibilityRole="button" onPress={() => saveExitRef.current()} hitSlop={12} style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+      <Text style={{ color: colors.onPrimary, fontWeight: '800', fontSize: font.base }}>{saved ? 'Saved ✓' : 'Save & exit'}</Text></Pressable> : null) })
+  }, [nav, draft, locked, saved])
   if (loading) return <Screen><Loading /></Screen>
   if (!draft || !fields) return <NotFound onBack={() => router.replace('/(app)')} />
   const f = fields
@@ -26,6 +31,10 @@ export default function SectionScreen() {
   const next = async () => { await flush(); router.push(n < 8 ? `/(app)/reports/${localId}/section/${n + 1}` : `/(app)/reports/${localId}/signatures`) }
   const back = async () => { await flush(); if (router.canGoBack()) router.back(); else router.replace(`/(app)/reports/${localId}/review`) }
   const saveExit = async () => { await flush(); setSaved(true); router.dismissAll(); router.replace('/(app)/drafts') }
+  saveExitRef.current = () => { void saveExit() }
+  /** Most items are usually GOOD: one tap fills every unanswered GOOD/DEFECT item of this section; DEFECTs are then changed individually. */
+  const unansweredGd = section ? section.rows.filter(r => r.type === 'gd' && !f[r.key]) : []
+  const markAllGood = () => set(Object.fromEntries(unansweredGd.map(r => [r.key, 'GOOD'])) as Partial<ReportFields>)
 
   /** Changing the visit date moves the default next visit (visit + 90) along, unless a different date was agreed. */
   const setVisitDate = (v: string | null) => {
@@ -39,11 +48,11 @@ export default function SectionScreen() {
       <Button title="Back" variant="secondary" onPress={back} style={{ flex: 1 }} />
       <Button title={n < 8 ? `Next: section ${n + 1}` : 'Next: signatures'} onPress={next} style={{ flex: 2 }} />
     </View>
-    {!locked && <Button title={saved ? 'Saved ✓' : 'Save draft and exit'} variant="ghost" onPress={saveExit} />}</>}>
+    </>}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.sm }}>
       <Text style={{ color: colors.muted, fontSize: font.small, flex: 1 }}>{draft.clientName} · Section {n} of 8</Text><StateBadge state={draft.syncState} />
     </View>
-    <Progress done={done} current={n} />
+    <Progress done={done} current={n} onSelect={async to => { await flush(); router.replace(`/(app)/reports/${localId}/section/${to}`) }} />
     {locked && <Text style={{ color: colors.danger, fontWeight: '800', marginBottom: space.md }}>
       {draft.syncState === 'conflict' ? 'Resolve the conflict on the Review screen before editing.' : 'This report is submitted and locked. Values are read-only.'}</Text>}
     {!locked && problems.length > 0 && <Text accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '700', marginBottom: space.md }}>{problems.join('\n')}</Text>}
@@ -58,9 +67,10 @@ export default function SectionScreen() {
     </View>}
 
     {section && <>
+      {!locked && unansweredGd.length > 1 && <Button title={`✓ Mark ${unansweredGd.length} unanswered as GOOD`} variant="secondary" onPress={markAllGood} style={{ marginBottom: space.lg, borderColor: colors.good }} />}
       {section.rows.map(r => <Field key={r.key} label={r.label}>
         {r.type === 'num'
-          ? <NumberInput value={f[r.key] as number | null | undefined} editable={!locked} max={LIMITS.maxNumber} onChange={v => set({ [r.key]: v } as Partial<ReportFields>)} placeholder="0" />
+          ? <NumberInput value={f[r.key] as number | null | undefined} editable={!locked} max={LIMITS.maxNumber} onChange={v => set({ [r.key]: v } as Partial<ReportFields>)} placeholder="Enter value" />
           : <Toggle value={f[r.key] as string | null} disabled={locked} options={r.type === 'yn' ? ['YES', 'NO'] : ['GOOD', 'DEFECT']} onChange={v => set({ [r.key]: v } as Partial<ReportFields>)} />}
       </Field>)}
       <Field label={section.remarksLabel ?? 'Remarks'}><Input value={(f[section.remarks] as string) ?? ''} editable={!locked} multiline maxLength={LIMITS.maxText} onChangeText={v => set({ [section.remarks]: v } as Partial<ReportFields>)} placeholder="Optional" /></Field>

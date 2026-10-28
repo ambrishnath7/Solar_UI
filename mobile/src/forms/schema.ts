@@ -50,6 +50,7 @@ export function headerComplete(f: ReportFields): boolean {
 }
 export function sectionComplete(n: number, f: ReportFields): boolean {
   if (n === 1 && !headerComplete(f)) return false
+  if (n === 8 && !(f.s8GeneralObservations?.trim() || f.s8ActionRequired?.trim())) return false   // next visit is pre-filled, so it alone does not mean "done"
   return sectionSchemas[n].safeParse(f).success
 }
 

@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router'
-import { colors } from '../../../theme'
+import { headerOptions } from '../../../theme'
 export default function ClientsLayout() {
-  return <Stack screenOptions={{ headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text, headerTitleStyle: { fontWeight: '700' } }}>
+  return <Stack screenOptions={headerOptions}>
     <Stack.Screen name="index" options={{ title: 'Select client' }} />
     <Stack.Screen name="[id]" options={{ title: 'Client details' }} />
   </Stack>

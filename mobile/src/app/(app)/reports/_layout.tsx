@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router'
-import { colors } from '../../../theme'
+import { headerOptions } from '../../../theme'
 export default function ReportsLayout() {
-  return <Stack screenOptions={{ headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text, headerTitleStyle: { fontWeight: '700' } }}>
+  return <Stack screenOptions={headerOptions}>
     <Stack.Screen name="[localId]/section/[n]" options={{ title: 'Maintenance form' }} />
     <Stack.Screen name="[localId]/signatures" options={{ title: 'Signatures' }} />
     <Stack.Screen name="[localId]/review" options={{ title: 'Review and submit' }} />

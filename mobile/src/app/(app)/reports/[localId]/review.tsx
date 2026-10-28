@@ -20,6 +20,14 @@ export default function Review() {
   if (d === null) return <NotFound onBack={() => router.replace('/(app)')} />
   const f = d.fields
   const missing = missingItems(f, { engineer: !!d.engineerSigUri, client: !!d.clientSigUri })
+  /** Missing items grouped per section, so the engineer jumps straight to the right screen. */
+  const missingGroups = [
+    ...(missing.some(m => m.startsWith('Visit date') || m.startsWith('Number of technicians') || m.startsWith('Visit')) ? [{ key: 'h', title: 'Visit details', detail: 'Visit date and number of technicians', count: 0, path: `/(app)/reports/${localId}/section/1` }] : []),
+    ...SECTIONS.map(sec => ({ sec, rows: sec.rows.filter(r => f[r.key] === null || f[r.key] === undefined || (f[r.key] as unknown) === '') }))
+      .filter(x => x.rows.length).map(x => ({ key: `s${x.sec.n}`, title: `${x.sec.n}. ${x.sec.title}`, detail: x.rows.map(r => r.label).join(', '), count: x.rows.length, path: `/(app)/reports/${localId}/section/${x.sec.n}` })),
+    ...(!f.nextVisitDate ? [{ key: 's8', title: '8. Observations and Issues', detail: 'Next visit date', count: 1, path: `/(app)/reports/${localId}/section/8` }] : []),
+    ...(!d.engineerSigUri || !d.clientSigUri || !f.clientRepName?.trim() ? [{ key: 'sig', title: 'Signatures', detail: [!d.engineerSigUri && 'Engineer signature', !f.clientRepName?.trim() && 'Client representative name', !d.clientSigUri && 'Client signature'].filter(Boolean).join(', '), count: 0, path: `/(app)/reports/${localId}/signatures` }] : []),
+  ]
   const defects = SECTIONS.flatMap(s => s.rows.filter(r => f[r.key] === 'DEFECT' || (r.key === 's1BrokenModule' && f[r.key] === 'YES')).map(r => `${s.n}. ${r.label}`))
   const editable = !['submitting', 'submitted', 'conflict', 'elsewhere'].includes(d.syncState)
 
@@ -56,8 +64,13 @@ export default function Review() {
 
     <Card><Row k="Visit date" v={fmtDate(f.visitDate)} /><Row k="Previous maintenance" v={fmtDate(f.previousMaintenanceDate)} /><Row k="Technicians" v={f.technicianCount ?? undefined} /><Row k="Next visit date" v={fmtDate(f.nextVisitDate)} />
       <Row k="Signatures" v={`${d.engineerSigUri ? '✓' : '✗'} engineer · ${d.clientSigUri ? '✓' : '✗'} client`} /><Row k="Client representative" v={f.clientRepName || undefined} /></Card>
-    {editable && missing.length > 0 && <Card style={{ borderColor: colors.warn, backgroundColor: colors.warnSoft }}><Text style={{ fontWeight: '800', marginBottom: 4 }}>Missing before submission</Text>{missing.map(m => <Text key={m} style={{ fontSize: font.small }}>• {m}</Text>)}
-      {(!d.engineerSigUri || !d.clientSigUri || !f.clientRepName?.trim()) && <Button title="Go to signatures" variant="secondary" onPress={() => open(`/(app)/reports/${localId}/signatures`)} style={{ marginTop: space.sm }} />}</Card>}
+    {editable && missing.length > 0 && <Card style={{ borderColor: colors.warn, backgroundColor: colors.warnSoft }}>
+      <Text style={{ fontWeight: '800', fontSize: font.large, marginBottom: space.sm }}>Still to fill in</Text>
+      {missingGroups.map(g => <Pressable key={g.key} accessibilityRole="button" onPress={() => open(g.path)}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 52, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#FDE68A' }}>
+        <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', fontSize: font.base }}>{g.title}</Text>{g.detail ? <Text style={{ color: colors.muted, fontSize: font.small }} numberOfLines={2}>{g.detail}</Text> : null}</View>
+        <Text style={{ color: colors.primary, fontWeight: '800', fontSize: font.base }}>{g.count ? `${g.count} ›` : '›'}</Text></Pressable>)}
+    </Card>}
     <Card style={defects.length ? { borderColor: colors.defect } : undefined}><Text style={{ fontWeight: '800', marginBottom: 4 }}>{defects.length ? `${defects.length} defect(s) recorded` : 'No defects recorded'}</Text>{defects.map(m => <Text key={m} style={{ color: colors.defect, fontSize: font.small }}>• {m}</Text>)}</Card>
     {SECTIONS.map(s => <Pressable key={s.n} disabled={!editable} onPress={() => open(`/(app)/reports/${localId}/section/${s.n}`)}><Card><Text style={{ fontWeight: '800', fontSize: font.base, marginBottom: 4 }}>{s.n}. {s.title}{editable ? '  ›' : ''}</Text>
       {s.rows.map(r => <Row key={r.key} k={r.label} v={(f[r.key] as string | number | null | undefined) ?? undefined} />)}

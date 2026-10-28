@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -14,6 +15,7 @@ const schema = z.object({ email: z.string().trim().email('Enter a valid email'),
 type Form = z.infer<typeof schema>
 
 export default function Login() {
+  const insets = useSafeAreaInsets()
   const { control, handleSubmit, getValues, formState: { errors, isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } })
   const [msg, setMsg] = useState<string | null>(null)
   const submit = async (f: Form) => {
@@ -26,16 +28,27 @@ export default function Login() {
     const { error } = await supabase.auth.resetPasswordForEmail(email); setMsg(error ? error.message : 'Password reset email sent. Open the link on a computer to set a new password.')
   }
 
-  return <View style={{ flex: 1, backgroundColor: colors.bg }}><ConnectionBanner />
+  const passwordForm = <View>
+    <Controller control={control} name="email" render={({ field }) => <Field label="Email" error={errors.email?.message}><Input value={field.value} onChangeText={field.onChange} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="username" /></Field>} />
+    <Controller control={control} name="password" render={({ field }) => <Field label="Password" error={errors.password?.message}><Input value={field.value} onChangeText={field.onChange} secureTextEntry autoComplete="password" textContentType="password" onSubmitEditing={() => void handleSubmit(submit)()} /></Field>} />
+    <Button title="Sign in" onPress={handleSubmit(submit)} loading={isSubmitting} />
+    <Button title="Forgot password?" variant="ghost" onPress={forgot} style={{ marginTop: space.sm }} />
+  </View>
+  return <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ backgroundColor: colors.primary, paddingTop: insets.top + space.xl, paddingBottom: space.xl, paddingHorizontal: space.lg }}>
+      <Text style={{ fontSize: 40 }}>☀️</Text>
+      <Text style={{ fontSize: 28, fontWeight: '800', color: colors.onPrimary, marginTop: space.sm }}>Solar Maintenance</Text>
+      <Text style={{ color: colors.primarySoft, fontSize: font.base }}>Shree Abhi Electricals & Engineering</Text>
+    </View>
+    <ConnectionBanner />
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: space.lg }} keyboardShouldPersistTaps="handled">
-        <View style={{ marginBottom: space.xl }}><Text style={{ fontSize: 30, fontWeight: '800', color: colors.primaryDark }}>Engineer login</Text><Text style={{ color: colors.muted, fontSize: font.base }}>Solar Maintenance Management</Text></View>
-        <Controller control={control} name="email" render={({ field }) => <Field label="Email" error={errors.email?.message}><Input value={field.value} onChangeText={field.onChange} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="username" /></Field>} />
-        <Controller control={control} name="password" render={({ field }) => <Field label="Password" error={errors.password?.message}><Input value={field.value} onChangeText={field.onChange} secureTextEntry autoComplete="password" textContentType="password" onSubmitEditing={() => void handleSubmit(submit)()} /></Field>} />
+      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: space.lg }} keyboardShouldPersistTaps="handled">
+        <Text style={{ fontSize: font.title, fontWeight: '800', color: colors.text, marginBottom: space.md }}>Engineer sign in</Text>
         {msg && <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: font.small, marginBottom: space.md, fontWeight: '600' }}>{msg}</Text>}
-        <Button title="Sign in" onPress={handleSubmit(submit)} loading={isSubmitting} />
-        <Button title="Forgot password?" variant="ghost" onPress={forgot} style={{ marginTop: space.sm }} />
+        {/* Test builds: quick sign-in first (the local setup has no Supabase accounts); the password form stays below. */}
         {DEV_LOGIN_ENABLED && <DevLogin onError={setMsg} />}
+        {DEV_LOGIN_ENABLED && <Text style={{ color: colors.muted, fontSize: font.small, textAlign: 'center', marginVertical: space.lg }}>— or sign in with email and password —</Text>}
+        <View style={{ backgroundColor: colors.bg, borderRadius: 14, padding: space.lg, borderWidth: 1, borderColor: '#E2E8F0' }}>{passwordForm}</View>
       </ScrollView>
     </KeyboardAvoidingView></View>
 }
@@ -50,8 +63,8 @@ function DevLogin({ onError }: { onError: (m: string | null) => void }) {
   }
   const [server, setServer] = useState(config.apiUrl)
   const saveServer = () => { setServer(setApiUrl(server)); load() }
-  return <View style={{ marginTop: space.xl, padding: space.md, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.warn, borderRadius: 12, backgroundColor: colors.warnSoft }}>
-    <Text style={{ fontWeight: '800', color: colors.warn, marginBottom: space.sm }}>⚡ Developer sign-in (local API only)</Text>
+  return <View style={{ padding: space.md, borderWidth: 2, borderColor: colors.primary, borderRadius: 14, backgroundColor: colors.primarySoft }}>
+    <Text style={{ fontWeight: '800', color: colors.primaryDark, fontSize: font.large, marginBottom: space.sm }}>⚡ Quick sign-in (test build)</Text>
     {API_URL_EDITABLE && <Field label="Server address" hint={`Your PC's address and port, e.g. 192.168.1.53:5000. Leave empty for ${config.builtApiUrl}.`}>
       <View style={{ flexDirection: 'row', gap: space.sm }}>
         <Input value={server} onChangeText={setServer} autoCapitalize="none" autoCorrect={false} keyboardType="url" style={{ flex: 1 }} onSubmitEditing={saveServer} accessibilityLabel="Server address" />
@@ -59,7 +72,7 @@ function DevLogin({ onError }: { onError: (m: string | null) => void }) {
       </View></Field>}
     {state === 'loading' && <Text style={{ color: colors.muted }}>Loading engineers from {config.apiUrl}…</Text>}
     {state === 'unavailable' && <><Text style={{ color: colors.muted, marginBottom: space.sm }}>Not available. The API at {config.apiUrl} must run in Development with DevAuth enabled, and this phone must reach it.</Text><Button title="Retry" variant="secondary" onPress={load} /></>}
-    {state === 'ok' && (users?.length ? users.map(u => <Button key={u.userId} title={`Sign in as ${u.engineerName ?? u.email ?? 'engineer'}`} variant="secondary" loading={busy === u.userId} onPress={() => login(u)} style={{ marginBottom: space.sm }} />)
+    {state === 'ok' && (users?.length ? users.map(u => <Button key={u.userId} title={`Sign in as ${u.engineerName ?? u.email ?? 'engineer'}`} variant="primary" loading={busy === u.userId} onPress={() => login(u)} style={{ marginBottom: space.sm }} />)
       : <Text style={{ color: colors.muted }}>No active engineers in the database.</Text>)}
   </View>
 }

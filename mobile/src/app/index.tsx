@@ -10,7 +10,7 @@ export default function Splash() {
   if (status === 'out') return <Redirect href="/(auth)/login" />
   return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, gap: 16 }}>
     <Text style={{ fontSize: 28, fontWeight: '800', color: '#fff' }}>Solar Maintenance</Text>
-    <Text style={{ color: '#FFF7E6' }}>Shree Abhi Electricals & Engineering</Text>
+    <Text style={{ color: '#E0F2FE' }}>Shree Abhi Electricals & Engineering</Text>
     <ActivityIndicator color="#fff" />
   </View>
 }

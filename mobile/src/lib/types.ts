@@ -3,6 +3,8 @@ export type YesNo = 'YES' | 'NO'
 export type GoodDefect = 'GOOD' | 'DEFECT'
 export type ReportStatus = 'draft' | 'submitted' | 'corrected'
 export type AmcStatus = 'FREE_YEAR1' | 'AMC' | 'EXPIRED' | 'NONE'
+export const AMC_LABELS: Record<string, string> = { FREE_YEAR1: 'Free 1st year', AMC: 'AMC active', EXPIRED: 'AMC expired', NONE: 'No AMC' }
+export const amcLabel = (s?: string | null) => (s ? AMC_LABELS[s] ?? s : '—')
 
 export type Me = { userId: string; role: 'admin' | 'engineer'; engineerId?: string | null; engineerName?: string | null; email?: string | null }
 

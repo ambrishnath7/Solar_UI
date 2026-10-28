@@ -28,9 +28,9 @@ export default function CalendarPage() {
     {q.isLoading ? <Skeleton rows={6} /> : q.isError ? <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} /> :
       <div className="overflow-x-auto"><div role="grid" aria-label={`Due dates in ${monthName}`} className="grid min-w-[700px] grid-cols-7 gap-px rounded-lg border border-slate-200 bg-slate-200">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} role="columnheader" className="bg-slate-50 px-2 py-1 text-center text-xs font-medium text-slate-500">{d}</div>)}
-        {cells.map((d, i) => { const k = d ? localIso(d) : ''; const items = d ? byDay.get(k) ?? [] : []; return <div key={i} role="gridcell" aria-label={d ? `${d.getDate()} ${monthName}: ${items.length} due` : undefined} className={cx('min-h-24 bg-white p-1', !d && 'bg-slate-50', k === todayIso && 'ring-2 ring-inset ring-amber-400')}>
+        {cells.map((d, i) => { const k = d ? localIso(d) : ''; const items = d ? byDay.get(k) ?? [] : []; return <div key={i} role="gridcell" aria-label={d ? `${d.getDate()} ${monthName}: ${items.length} due` : undefined} className={cx('min-h-24 bg-white p-1', !d && 'bg-slate-50', k === todayIso && 'ring-2 ring-inset ring-sky-400')}>
           {d && <div className="mb-1 text-xs text-slate-500">{d.getDate()}</div>}
-          {items.map(s => <button key={s.clientId} type="button" onClick={() => nav(`/clients/${s.clientId}`)} className={cx('mb-1 block w-full truncate rounded px-1 py-0.5 text-left text-xs', s.isOverdue ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-900')} title={`${s.clientName} — ${s.siteLocation ?? ''}`}>{s.clientName}</button>)}
+          {items.map(s => <button key={s.clientId} type="button" onClick={() => nav(`/clients/${s.clientId}`)} className={cx('mb-1 block w-full truncate rounded px-1 py-0.5 text-left text-xs', s.isOverdue ? 'bg-red-100 text-red-800' : 'bg-sky-100 text-sky-900')} title={`${s.clientName} — ${s.siteLocation ?? ''}`}>{s.clientName}</button>)}
         </div> })}
       </div></div>}
   </>

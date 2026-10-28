@@ -40,7 +40,7 @@ export default function AmcPage() {
     {notFound && <Notice tone="info" className="mb-3">That client is not in this list (only active clients are shown here). Edit its AMC from the client page after reactivating it.</Notice>}
     {q.isLoading ? <Skeleton /> : q.isError ? <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} /> : !q.data?.length ? <EmptyState text="No clients match." /> :
       <Table rows={q.data} keyOf={c => c.id} cols={[
-        { h: 'Client', cell: c => <span className="font-medium">{c.name}</span> }, { h: 'Site', cell: c => c.siteLocation ?? '—' }, { h: 'Status', cell: c => <Badge tone={amcTone(c.amcStatus)}>{c.amcStatus}</Badge> },
+        { h: 'Client', cell: c => <span className="block max-w-[16rem] truncate font-medium" title={c.name}>{c.name}</span> }, { h: 'Site', cell: c => c.siteLocation ?? '—' }, { h: 'Status', cell: c => <Badge tone={amcTone(c.amcStatus)}>{c.amcStatus}</Badge> },
         { h: 'Start', cell: c => fmtDate(c.amcStartDate) }, { h: 'Expiry', cell: c => <span className={cx(soon(c.amcExpiryDate) && 'font-semibold text-amber-700')}>{fmtDate(c.amcExpiryDate)}</span> },
         { h: '', cell: c => <Button variant="ghost" onClick={() => open(c)} aria-label={`Edit AMC for ${c.name}`}>Edit AMC</Button> }]} />}
     <Modal open={!!edit} title={`AMC — ${edit?.name ?? ''}`} onClose={() => setEdit(null)} closeOnBackdrop={false}>

@@ -51,10 +51,22 @@ export default function LoginPage() {
     } catch (e) { setError(`Dev login failed: ${errorMessage(e)}`) } finally { setDevBusy(null) }
   }
 
-  return <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-amber-50 to-slate-100 p-4">
+  return <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-sky-100 via-sky-50 to-slate-100 p-4">
     <div className="w-full max-w-sm">
+      <div className="mb-4 flex items-center gap-3 rounded-xl bg-gradient-to-br from-sky-600 to-sky-800 p-5 text-white shadow-md">
+        <div className="rounded-full bg-white/20 p-2"><Sun className="h-7 w-7" /></div>
+        <div><h1 className="text-xl font-semibold">Solar Maintenance</h1><p className="text-sm text-sky-100">Shree Abhi Electricals · Administrator</p></div>
+      </div>
+      {DEV_LOGIN_ENABLED && <div className="mb-4 rounded-xl border-2 border-sky-600 bg-white p-4 shadow-sm">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-sky-900"><Zap className="h-4 w-4" />Quick sign-in (local test setup)</div>
+        {devUsers.isLoading ? <p className="text-sm text-sky-800">Loading users…</p>
+          : devUsers.isError ? <p className="text-sm text-sky-800">Not available: the API is not running in Development with DevAuth enabled.</p>
+          : !devUsers.data?.length ? <p className="text-sm text-sky-800">No active admin users in the database.</p>
+          : <div className="space-y-2">{devUsers.data.map(u => <Button key={u.userId} type="button" variant="primary" loading={devBusy === u.userId} onClick={() => devLogin(u.userId)} className="w-full justify-center">
+              Sign in as {u.email ?? u.userId.slice(0, 8)}</Button>)}</div>}
+      </div>}
       <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md" noValidate>
-        <div className="mb-6 flex items-center gap-3"><div className="rounded-full bg-amber-100 p-2"><Sun className="h-6 w-6 text-amber-600" /></div><div><h1 className="text-lg font-semibold">Solar Maintenance</h1><p className="text-sm text-slate-500">Administrator sign in</p></div></div>
+        {DEV_LOGIN_ENABLED && <p className="mb-4 text-center text-xs uppercase tracking-wide text-slate-400">or sign in with email and password</p>}
         <div className="space-y-3">
           <Field label="Email" error={errors.email?.message}><Input type="email" autoComplete="username" {...register('email')} /></Field>
           <Field label="Password" error={errors.password?.message}><Input type="password" autoComplete="current-password" {...register('password')} /></Field>
@@ -64,15 +76,6 @@ export default function LoginPage() {
         <Button type="submit" loading={isSubmitting} className="mt-5 w-full justify-center">Sign in</Button>
         <button type="button" onClick={forgot} className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-800">Forgot password?</button>
       </form>
-
-      {DEV_LOGIN_ENABLED && <div className="mt-4 rounded-xl border border-dashed border-amber-400 bg-amber-50 p-4">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-900"><Zap className="h-4 w-4" />Developer sign-in (local API only)</div>
-        {devUsers.isLoading ? <p className="text-sm text-amber-800">Loading users…</p>
-          : devUsers.isError ? <p className="text-sm text-amber-800">Not available: the API is not running in Development with DevAuth enabled.</p>
-          : !devUsers.data?.length ? <p className="text-sm text-amber-800">No active admin users in the database.</p>
-          : <div className="space-y-2">{devUsers.data.map(u => <Button key={u.userId} type="button" variant="secondary" loading={devBusy === u.userId} onClick={() => devLogin(u.userId)} className="w-full justify-center">
-              Sign in as {u.email ?? u.userId.slice(0, 8)}</Button>)}</div>}
-      </div>}
     </div>
   </div>
 }

@@ -29,7 +29,7 @@ export default function ClientDetailPage() {
       <Card><h2 className="mb-2 font-semibold">Installation</h2>{row('Capacity', c.solarCapacityKwp != null ? `${c.solarCapacityKwp} kWp` : null)}{row('Modules', [c.moduleMake, c.moduleModel, c.moduleCount != null ? `${c.moduleCount} nos` : null, c.moduleWattage != null ? `${c.moduleWattage} W` : null].filter(Boolean).join(', ') || null)}
         {row('Inverter', [c.inverterMake, c.inverterModel, c.inverterCapacityKw != null ? `${c.inverterCapacityKw} kW` : null].filter(Boolean).join(', ') || null)}{row('Installed', fmtDate(c.installationDate))}</Card>
       <Card><h2 className="mb-2 font-semibold">Maintenance and AMC</h2>{row('Previous maintenance', fmtDate(c.previousMaintenanceDate))}{row('Next due', fmtDate(c.nextDueDate))}{row('AMC status', <Badge tone={amcTone(c.amcStatus)}>{c.amcStatus}</Badge>)}{row('AMC period', `${fmtDate(c.amcStartDate)} → ${fmtDate(c.amcExpiryDate)}`)}
-        <Link to={`/amc?client=${c.id}`} className="mt-2 inline-block text-sm text-amber-700 hover:underline">Manage AMC</Link></Card>
+        <Link to={`/amc?client=${c.id}`} className="mt-2 inline-block text-sm text-sky-700 hover:underline">Manage AMC</Link></Card>
     </div>
     <Card className="mt-4"><h2 className="mb-3 font-semibold">Maintenance history</h2>
       {reports.isLoading ? <Skeleton /> : reports.isError ? <ErrorState message={errorMessage(reports.error)} onRetry={() => reports.refetch()} /> : reports.data!.items.length === 0 ? <p className="text-sm text-slate-500">No reports yet.</p> : <>
