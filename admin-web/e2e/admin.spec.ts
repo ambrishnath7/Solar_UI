@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 
+const API = process.env.E2E_API_URL ?? 'http://localhost:5000'
 const email = process.env.E2E_ADMIN_EMAIL
 const password = process.env.E2E_ADMIN_PASSWORD
 
@@ -9,7 +10,7 @@ test('unauthenticated visit redirects to login', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Solar Maintenance' })).toBeVisible()
 })
 
-test('wrong password shows an error from Supabase Auth', async ({ page }) => {
+test('wrong password shows an error from the API', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('Email').fill('nobody@example.com')
   await page.getByLabel('Password').fill('definitely-wrong')
@@ -48,10 +49,14 @@ test.describe('authenticated admin', () => {
     await page.getByLabel('Site location').fill('Rooftop')
     await page.getByRole('button', { name: 'Create client' }).click()
     await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 15_000 })
+    const id = page.url().split('/clients/')[1]?.split(/[?#]/)[0]
     await page.getByRole('link', { name: 'Clients' }).click()
     await page.getByPlaceholder('Search name, site, contact').fill('E2E Client')
     await page.keyboard.press('Enter')
     await expect(page.getByText(name)).toBeVisible()
+    // deactivate it so test clients never appear in the engineers' client list
+    const { accessToken } = await (await page.request.post(`${API}/auth/login`, { data: { email, password } })).json() as { accessToken: string }
+    expect((await page.request.post(`${API}/clients/${id}/deactivate`, { headers: { Authorization: `Bearer ${accessToken}` } })).ok()).toBeTruthy()
   })
 
   test('reports list, detail and PDF preview', async ({ page }) => {

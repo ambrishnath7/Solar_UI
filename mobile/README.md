@@ -4,17 +4,25 @@ Expo SDK 58, Expo Router, TypeScript, React Hook Form + Zod, expo-sqlite (drafts
 
 ## Run locally
 ```
-cp .env.example .env     # EXPO_PUBLIC_API_URL: 10.0.2.2 = host machine from the Android emulator; use your LAN IP for a physical phone
 npm install
-npx expo start           # press a for Android emulator, or scan with a development build
+npx expo start           # press a for the Android emulator, or use a development build
 ```
-`react-native-signature-canvas` (WebView) and `expo-sqlite` need native code, so use a **development build** rather than Expo Go:
-```
-npx eas build -p android --profile development    # once; install the APK on the phone/emulator
-```
-Login uses Supabase Auth (publishable key). The API then checks `app_users`; only `engineer` users can create reports.
+API address for development: `.env.development` (`http://10.0.2.2:5000` = your PC from the Android emulator).
+For a physical phone put your PC's Wi-Fi address in `.env.development.local` (git-ignored), e.g. `EXPO_PUBLIC_API_URL=http://192.168.1.53:5000`.
+Test builds also let you change the server address on the login screen (Quick sign-in → Server address) without rebuilding.
 
-Local API note: the API's `Cors` list is irrelevant for the app (no browser), but the Supabase auth user id must exist in whatever database the API uses (see backend/README.md).
+`react-native-signature-canvas` (WebView) and `expo-sqlite` need native code, so use a **development build** or a test APK rather than Expo Go.
+
+Sign-in goes to the API (`POST /auth/login`). Tokens are stored in the encrypted SecureStore and refreshed automatically; if the
+phone is offline the session is kept and drafts keep saving. Only `engineer` users can create reports.
+Forgotten password: an administrator sets a new one on the admin site (Engineers → Reset password).
+
+**Environment files** (every `EXPO_PUBLIC_` value is public — it is inside the APK; never put secrets here):
+| File | Used by | Contents |
+|---|---|---|
+| `.env.development` | `expo start`, test APK | emulator API address, `EXPO_PUBLIC_DEV_LOGIN=true` |
+| `.env.development.local` | your machine only | your PC's LAN address |
+| `.env.production` | reference only | the production build script passes the real HTTPS address explicitly |
 
 ## Structure
 ```
@@ -29,7 +37,7 @@ src/app/              routes (expo-router)
 src/db/               SQLite: drafts (fields JSON, sync flags), clients_cache
 src/sync/engine.ts    create → update → signatures → submit; backoff; 409 conflict; 423 locked
 src/forms/            zod section schemas, useDraft autosave hook
-src/lib/              config, supabase, api (axios + token refresh + PDF download), types (form labels), store
+src/lib/              config (API address), auth (session in SecureStore, refresh, logout), api (axios + 401 retry + PDF download), types, store
 src/components/       ui (Screen, Button, Toggle, banner, badges), SignaturePad
 ```
 
@@ -46,28 +54,24 @@ src/components/       ui (Screen, Button, Toggle, banner, badges), SignaturePad
 - Badges: Saved on phone, Syncing, Synced, Submitting, Submitted, Sync failed (tap the banner or Sync now), Conflict, Submitted elsewhere.
 
 ## Known limitations
-- The Supabase session is stored in the expo-sqlite key-value store, not the encrypted SecureStore (Supabase sessions exceed SecureStore's 2 KB value limit). Phones should use a screen lock.
+- Offline: drafts, signatures and the client list (once loaded) work without a connection, and sync later. Signing in, loading new clients, submitting and PDFs need the API.
 - Drafts started on another device are not listed on this phone (server-side drafts are not downloaded).
-- `usesCleartextTraffic` is on for the local HTTP API; turn it off for production builds that use HTTPS.
+- Cleartext HTTP is allowed only in test builds that use an `http://` API; production builds are HTTPS-only.
 - Keyboard avoidance and the native date picker need checking on a real device.
 
 ## Builds
-- `eas build -p android --profile preview` → APK for internal testing against staging.
-- `eas build -p android --profile production` → AAB for Play Console.
-- iOS: requires an Apple Developer account; `eas build -p ios`. Not yet tested.
-Set the real API URLs in `eas.json` before building. Never point a production build at localhost.
+```
+powershell -File scripts\build-apk.ps1 -Profile test                                   # dev login on, PC address from .env.development(.local)
+powershell -File scripts\build-apk.ps1 -Profile production -ApiUrl https://<api host> [-Keystore C:\keys\solar-release.jks]
+```
+The production profile refuses `http://`, LAN and placeholder addresses, turns dev login and cleartext off, and checks the
+finished APK's JavaScript for the HTTPS address and for the absence of development addresses. Without `-Keystore` the APK is
+signed with the debug key (trial installs only). Alternatives: GitHub Actions `android-apk` (manual run) or
+`eas build -p android --profile production-apk`. Full steps: `Solar_Api/docs/deployment.md`.
 
 ## Building an APK locally on Windows
 React Native's native build creates file paths longer than 260 characters, which fails on Windows unless long paths are enabled. One-time, in an **elevated** PowerShell:
 ```
 New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force
 ```
-Then (short path recommended; `C:\sm` is a copy of this folder used only for building):
-```
-npx expo prebuild --platform android --no-install
-cd android
-.\gradlew.bat assembleRelease --no-daemon
-# APK: android\app\build\outputs\apk\release\app-release.apk (signed with the debug keystore — internal testing only)
-```
 `reactNativeArchitectures=arm64-v8a,x86_64` in `android/gradle.properties` halves build time (phones + emulator).
-Alternative without a local SDK: the `android-apk` GitHub Actions workflow builds on Linux and uploads the APK as an artifact.

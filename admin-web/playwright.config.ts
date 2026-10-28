@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test'
 
 // Expects the admin web dev server on :3000 (started automatically) and, for signed-in tests, the API on :5000. Authenticated tests need
-// E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for a Supabase user that is an admin in the API's database.
+// E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for an admin with a password (create one with the API's create-admin command).
 export default defineConfig({
   testDir: 'e2e',
   timeout: 30_000,

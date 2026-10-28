@@ -1,36 +1,29 @@
 import axios, { AxiosError } from 'axios'
-import { createClient } from '@supabase/supabase-js'
-import { clearDevSession, getDevSession, type DevSession, type DevUser } from './devAuth'
+import type { DevUser } from './devAuth'
+import { accessToken, API_URL, logout, refresh, setSession, type AuthResponse } from './session'
 import { queryClient } from './queryClient'
 import { SECTIONS } from './types'
 import type { Client, ClientUpsert, Company, DashboardSummary, DefectSummaryItem, Engineer, Me, Paged, Report, ReportFields, ReportListItem, ScheduleItem, ShareLink } from './types'
 
-export const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-})
-
-export const API_URL: string = import.meta.env.VITE_API_URL
+export { API_URL }
 
 export const http = axios.create({ baseURL: API_URL, timeout: 30_000 })
 
-/** Current bearer token: a dev-login session (local testing only) or the Supabase session. */
-export async function accessToken(): Promise<string | null> {
-  const dev = getDevSession()
-  if (dev) return dev.accessToken
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
-}
-
-/** Forgets any dev session and all cached server data (e.g. before a different user signs in). */
+/** Forgets cached server data (e.g. before a different user signs in). */
 export function resetLocalState() {
-  clearDevSession()
   queryClient.clear()
 }
 
-/** Signs out on THIS browser only (scope 'local' keeps the admin's other devices signed in). */
+/** Signs out this browser: revokes the refresh token at the API and clears local state. */
 export async function signOut() {
   resetLocalState()
-  try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* already signed out */ }
+  await logout()
+}
+
+/** Stores a session returned by /auth/login or /dev/login. */
+export function startSession(r: AuthResponse, dev = false) {
+  resetLocalState()
+  setSession({ ...r, dev })
 }
 
 const toLogin = () => {
@@ -46,11 +39,10 @@ http.interceptors.request.use(async (config) => {
 http.interceptors.response.use(undefined, async (error: AxiosError) => {
   const cfg = error.config as (typeof error.config & { _retried?: boolean }) | undefined
   if (error.response?.status !== 401 || !cfg || cfg._retried) return Promise.reject(error)
-  if (getDevSession()) { await signOut(); toLogin(); return Promise.reject(error) }   // dev token expired or API restarted without dev login
   try {
-    const { data } = await supabase.auth.refreshSession()
-    if (data.session) { cfg._retried = true; cfg.headers.Authorization = `Bearer ${data.session.access_token}`; return http(cfg) }
-  } catch { /* refresh failed */ }
+    const t = await refresh()                                        // access token expired or the API restarted with a new key
+    if (t) { cfg._retried = true; cfg.headers.Authorization = `Bearer ${t}`; return http(cfg) }
+  } catch { return Promise.reject(error) }                           // API unreachable: keep the session
   await signOut(); toLogin()
   return Promise.reject(error)
 })
@@ -91,9 +83,13 @@ const q = (params: Record<string, unknown>) => Object.fromEntries(Object.entries
 
 export const api = {
   me: () => http.get<Me>('/me').then(r => r.data),
+  auth: {
+    login: (email: string, password: string) => axios.post<AuthResponse>(`${API_URL}/auth/login`, { email, password }, { timeout: 30_000 }).then(r => r.data),
+    changePassword: (currentPassword: string, newPassword: string) => http.post('/auth/change-password', { currentPassword, newPassword }).then(() => undefined),
+  },
   dev: {
     users: (role?: string) => axios.get<DevUser[]>(`${API_URL}/dev/users`, { params: q({ role }), timeout: 10_000 }).then(r => r.data),
-    login: (userId: string) => axios.post<DevSession>(`${API_URL}/dev/login`, { userId }, { timeout: 10_000 }).then(r => r.data),
+    login: (userId: string) => axios.post<AuthResponse>(`${API_URL}/dev/login`, { userId }, { timeout: 10_000 }).then(r => r.data),
   },
   clients: {
     list: (p: { search?: string; active?: boolean; page?: number; pageSize?: number; sort?: string }) => http.get<Paged<Client>>('/clients', { params: q(p) }).then(r => r.data),
@@ -108,6 +104,7 @@ export const api = {
     create: (d: { name: string; phone?: string | null; email: string; employeeCode?: string | null; password: string }) => http.post<Engineer>('/engineers', d).then(r => r.data),
     update: (id: string, d: { name: string; phone?: string | null; employeeCode?: string | null }) => http.put<Engineer>(`/engineers/${id}`, d).then(r => r.data),
     setActive: (id: string, active: boolean) => http.post<Engineer>(`/engineers/${id}/${active ? 'activate' : 'deactivate'}`).then(r => r.data),
+    setPassword: (id: string, password: string) => http.post<Engineer>(`/engineers/${id}/password`, { password }).then(r => r.data),
   },
   reports: {
     list: (p: { search?: string; engineerId?: string; clientId?: string; from?: string; to?: string; status?: string; amcStatus?: string; page?: number; pageSize?: number; sort?: string }) =>

@@ -1,26 +1,20 @@
 import { Suspense, useEffect, useState } from 'react'
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AlertTriangle, BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, Users, Wrench, X } from 'lucide-react'
-import { errorMessage, signOut, statusOf, supabase } from '../lib/api'
-import { getDevSession } from '../lib/devAuth'
+import { errorMessage, signOut, statusOf } from '../lib/api'
+import { isDevSession } from '../lib/devAuth'
+import { getSession } from '../lib/session'
 import { useMe } from '../lib/useMe'
 import { cx } from '../lib/format'
 import { Button, Skeleton } from '../components/ui'
 
-/** 'loading' until the first check; then 'in' when a dev session or Supabase session exists. Reacts to sign-in/out anywhere. */
-function useAuthState(): 'loading' | 'in' | 'out' {
-  const [state, setState] = useState<'loading' | 'in' | 'out'>('loading')
+/** 'in' while a session (unexpired refresh token) is stored, else 'out'. Reacts to sign-in/out in this or another tab. */
+function useAuthState(): 'in' | 'out' {
+  const [state, setState] = useState<'in' | 'out'>(() => (getSession() ? 'in' : 'out'))
   useEffect(() => {
-    let alive = true
-    const check = async () => {
-      if (getDevSession()) { if (alive) setState('in'); return }
-      const { data } = await supabase.auth.getSession()
-      if (alive) setState(data.session ? 'in' : 'out')
-    }
-    void check()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { void check() })
+    const check = () => setState(getSession() ? 'in' : 'out')
     window.addEventListener('solar-auth', check)
-    return () => { alive = false; subscription.unsubscribe(); window.removeEventListener('solar-auth', check) }
+    return () => window.removeEventListener('solar-auth', check)
   }, [])
   return state
 }
@@ -33,7 +27,6 @@ export function AdminGuard() {
   const location = useLocation()
   const me = useMe(auth === 'in')
 
-  if (auth === 'loading') return <Splash />
   if (auth === 'out') return <Navigate to={`/login?from=${encodeURIComponent(location.pathname + location.search)}`} replace />
   if (me.isLoading) return <Splash />
   if (me.isError || me.data?.role !== 'admin') {
@@ -68,7 +61,7 @@ function Shell() {
   const me = useMe()
   const navigate = useNavigate()
   const doSignOut = async () => { await signOut(); navigate('/login') }
-  const dev = getDevSession()
+  const dev = isDevSession()
   const links = nav.map(n => <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
     className={({ isActive }) => cx('flex items-center gap-3 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500', isActive ? 'bg-sky-100 font-medium text-sky-900' : 'text-slate-700 hover:bg-slate-100')}><n.icon className="h-4 w-4" aria-hidden />{n.label}</NavLink>)
   const devBadge = dev && <div className="mx-3 mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">dev login</div>

@@ -5,21 +5,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Sun, Zap } from 'lucide-react'
-import { api, errorMessage, resetLocalState, supabase } from '../../lib/api'
-import { DEV_LOGIN_ENABLED, setDevSession } from '../../lib/devAuth'
-import { queryClient } from '../../lib/queryClient'
+import { api, errorMessage, startSession, statusOf } from '../../lib/api'
+import { DEV_LOGIN_ENABLED } from '../../lib/devAuth'
 import { Button, Field, Input, Notice } from '../../components/ui'
 
-const schema = z.object({ email: z.email('Enter a valid email'), password: z.string().min(1, 'Password is required') })
+// Same rule as the API's accounts (any address with an @), so e.g. admin@local can sign in during development.
+const schema = z.object({ email: z.string().trim().regex(/^[^\s@]+@[^\s@]+$/, 'Enter a valid email'), password: z.string().min(1, 'Password is required') })
 type Form = z.infer<typeof schema>
 
 /** Only allow same-site relative redirects after login. */
 const safeFrom = (v: string | null) => (v && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/login') ? v : '/')
 
 export default function LoginPage() {
-  const { register, handleSubmit, getValues, formState: { errors, isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
   const [error, setError] = useState<string | null>(null)
-  const [resetSent, setResetSent] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
   const [devBusy, setDevBusy] = useState<string | null>(null)
   const navigate = useNavigate()
   const [sp] = useSearchParams()
@@ -27,26 +27,20 @@ export default function LoginPage() {
 
   const onSubmit = async (f: Form) => {
     setError(null)
-    resetLocalState()                                 // drop any dev session and cached data from a previous user (other devices stay signed in)
-    const { error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.password })
-    if (error) { setError(error.message); return }
-    navigate(from, { replace: true })
-  }
-  const forgot = async () => {
-    const email = getValues('email')?.trim()
-    if (!email) { setError('Enter your email first, then click Forgot password'); return }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })
-    if (error) setError(error.message); else setResetSent(true)
+    try {
+      startSession(await api.auth.login(f.email.trim(), f.password))   // replaces any previous user's session and cached data
+      navigate(from, { replace: true })
+    } catch (e) {
+      const s = statusOf(e)
+      setError(s === 401 ? 'Invalid email or password.' : s === 429 ? 'Too many sign-in attempts. Wait a minute and try again.' : errorMessage(e))
+    }
   }
 
   const devUsers = useQuery({ queryKey: ['dev-users'], queryFn: () => api.dev.users('admin'), enabled: DEV_LOGIN_ENABLED, retry: false, staleTime: 0 })
   const devLogin = async (userId: string) => {
     setError(null); setDevBusy(userId)
     try {
-      resetLocalState()
-      await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
-      setDevSession(await api.dev.login(userId))
-      await queryClient.invalidateQueries()
+      startSession(await api.dev.login(userId), true)
       navigate(from, { replace: true })
     } catch (e) { setError(`Dev login failed: ${errorMessage(e)}`) } finally { setDevBusy(null) }
   }
@@ -72,9 +66,9 @@ export default function LoginPage() {
           <Field label="Password" error={errors.password?.message}><Input type="password" autoComplete="current-password" {...register('password')} /></Field>
         </div>
         {error && <Notice className="mt-3">{error}</Notice>}
-        {resetSent && <Notice tone="success" className="mt-3">Password reset email sent.</Notice>}
         <Button type="submit" loading={isSubmitting} className="mt-5 w-full justify-center">Sign in</Button>
-        <button type="button" onClick={forgot} className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-800">Forgot password?</button>
+        <button type="button" onClick={() => setShowForgot(v => !v)} className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-800">Forgot password?</button>
+        {showForgot && <Notice tone="info" className="mt-2">Administrator passwords are reset by whoever runs the server, with the API's create-admin command. Engineers: ask an administrator to reset yours.</Notice>}
       </form>
     </div>
   </div>

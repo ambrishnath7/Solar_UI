@@ -14,7 +14,7 @@ export type Client = {
 }
 export type ClientUpsert = Omit<Client, 'id' | 'isActive' | 'createdAt' | 'updatedAt' | 'amcStatus'> & { amcStatus?: AmcStatus | null }
 
-export type Engineer = { id: string; name: string; phone?: string | null; email: string; employeeCode?: string | null; isActive: boolean; userId?: string | null; createdAt: string }
+export type Engineer = { id: string; name: string; phone?: string | null; email: string; employeeCode?: string | null; isActive: boolean; userId?: string | null; hasPassword?: boolean; createdAt: string }
 
 export type YesNo = 'YES' | 'NO'
 export type GoodDefect = 'GOOD' | 'DEFECT'

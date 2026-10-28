@@ -1,19 +1,25 @@
 name: android-apk
 
-# Builds a release APK (signed with the debug keystore, for internal testing) on Linux and uploads it as an artifact.
-# Run manually from the Actions tab: choose the API URL the app should talk to.
+# Builds a PRODUCTION APK on Linux and uploads it as an artifact. Run manually from the Actions tab.
+# The API address must be the deployed HTTPS API; app.config.ts rejects http:// and developer sign-in for production.
+# Signing: with the secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS the APK is signed with
+# your release key; otherwise it is signed with the debug key (sideloading only).
 on:
   workflow_dispatch:
     inputs:
       api_url:
-        description: "EXPO_PUBLIC_API_URL baked into the app"
+        description: "Deployed HTTPS API address baked into the app (e.g. https://solar-api.azurewebsites.net)"
         required: true
-        default: "http://192.168.1.21:5182"
 
 jobs:
   apk:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: mobile } }
+    env:
+      APP_VARIANT: production
+      NODE_ENV: production
+      EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+      EXPO_PUBLIC_DEV_LOGIN: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,12 +30,31 @@ jobs:
       - run: npm ci
       - name: Generate native project
         run: npx expo prebuild --platform android --no-install
-        env: { EXPO_PUBLIC_API_URL: "${{ inputs.api_url }}", EXPO_PUBLIC_SUPABASE_URL: https://rgzwoynszfsvwpsimfzz.supabase.co, EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_fxp-nExJJkQVPQGQCY2oUg_hnBBIJHt }
       - name: Build release APK
         run: cd android && ./gradlew assembleRelease --no-daemon -q
-        env: { EXPO_PUBLIC_API_URL: "${{ inputs.api_url }}", EXPO_PUBLIC_SUPABASE_URL: https://rgzwoynszfsvwpsimfzz.supabase.co, EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_fxp-nExJJkQVPQGQCY2oUg_hnBBIJHt }
+      - name: Check no development address is baked in
+        run: |
+          unzip -p android/app/build/outputs/apk/release/app-release.apk assets/index.android.bundle > /tmp/bundle
+          grep -q "$EXPO_PUBLIC_API_URL" /tmp/bundle
+          ! grep -aq -e "192\.168\." -e "10\.0\.2\.2" -e "localhost:5000" /tmp/bundle
+      - name: Sign with the release key (when configured)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > /tmp/release.jks
+            BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+            "$BT/apksigner" sign --ks /tmp/release.jks --ks-key-alias "$KS_ALIAS" --ks-pass env:KS_PASS --out solar-maintenance.apk "$APK"
+            rm /tmp/release.jks
+          else
+            echo "::warning::No release keystore secrets: APK is signed with the debug key"
+            cp "$APK" solar-maintenance.apk
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: solar-maintenance-apk
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: mobile/solar-maintenance.apk
           retention-days: 14

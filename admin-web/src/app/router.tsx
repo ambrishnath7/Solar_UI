@@ -1,12 +1,11 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AdminGuard } from './AdminShell'
 import LoginPage from '../features/auth/LoginPage'
-import ResetPasswordPage from '../features/auth/ResetPasswordPage'
 import { AmcPage, CalendarPage, ClientDetailPage, ClientsPage, DashboardPage, DefectSummaryPage, EngineersPage, ReportDetailPage, ReportsPage, SettingsPage, UpcomingOverduePage } from './pages'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
-  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/reset-password', element: <Navigate to="/login" replace /> },   // old e-mailed reset links
   {
     path: '/', element: <AdminGuard />, children: [
       { index: true, element: <DashboardPage /> },

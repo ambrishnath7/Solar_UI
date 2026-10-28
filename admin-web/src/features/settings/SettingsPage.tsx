@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { api, errorMessage, supabase } from '../../lib/api'
-import { getDevSession } from '../../lib/devAuth'
+import { api, API_URL, errorMessage, problemOf } from '../../lib/api'
+import { isDevSession } from '../../lib/devAuth'
 import { useMe } from '../../lib/useMe'
 import type { Company } from '../../lib/types'
 import { fmtDateTime } from '../../lib/format'
@@ -18,18 +18,22 @@ const toForm = (c: Company): CompanyForm => Object.fromEntries(Object.entries(c)
 
 export default function SettingsPage() {
   const qc = useQueryClient(); const me = useMe()
-  const isDev = !!getDevSession()
+  const isDev = isDevSession()
   const q = useQuery({ queryKey: ['company'], queryFn: api.company.get })
   const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<CompanyForm>()
   useEffect(() => { if (q.data) reset(toForm(q.data)) }, [q.data, reset])
   const save = useMutation({ mutationFn: (d: CompanyForm) => api.company.update(toPayload(d)), onSuccess: () => qc.invalidateQueries({ queryKey: ['company'] }) })
   const logo = useMutation({ mutationFn: (f: File) => api.company.logo(f), onSuccess: () => qc.invalidateQueries({ queryKey: ['company'] }) })
   const [logoErr, setLogoErr] = useState<string | null>(null)
-  const [pw, setPw] = useState(''); const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null); const [pwBusy, setPwBusy] = useState(false)
+  const [curPw, setCurPw] = useState(''); const [pw, setPw] = useState(''); const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null); const [pwBusy, setPwBusy] = useState(false)
   const changePw = async () => {
-    if (pw.length < 8) return setPwMsg({ ok: false, text: 'At least 8 characters' })
-    setPwBusy(true); const { error } = await supabase.auth.updateUser({ password: pw }); setPwBusy(false)
-    setPwMsg(error ? { ok: false, text: error.message } : { ok: true, text: 'Password changed.' }); if (!error) setPw('')
+    setPwMsg(null)                                   // never leave an old result on screen while a new attempt runs
+    if (!curPw) return setPwMsg({ ok: false, text: 'Enter your current password' })
+    if (pw.length < 8) return setPwMsg({ ok: false, text: 'The new password needs at least 8 characters' })
+    setPwBusy(true)
+    try { await api.auth.changePassword(curPw, pw); setPwMsg({ ok: true, text: 'Password changed.' }); setCurPw(''); setPw('') }
+    catch (e) { const errs = problemOf(e).errors; setPwMsg({ ok: false, text: errs ? Object.values(errs).flat().join(' ') : errorMessage(e) }) }   // the server's sentence, without field keys
+    finally { setPwBusy(false) }
   }
   const pickLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; e.target.value = ''          // reset so picking the same file again still fires
@@ -62,15 +66,16 @@ export default function SettingsPage() {
       </Card>
       <div className="space-y-4">
         <Card><h2 className="mb-2 font-semibold">Company logo</h2>
-          {q.data?.logoUrl ? <img src={q.data.logoUrl} alt="Company logo" className="mb-2 max-h-24 rounded border border-slate-200 bg-white p-1" /> : <p className="mb-2 text-sm text-slate-500">No logo uploaded.</p>}
+          {q.data?.logoUrl ? <img src={new URL(q.data.logoUrl, API_URL).toString()} alt="Company logo" className="mb-2 max-h-24 rounded border border-slate-200 bg-white p-1" /> : <p className="mb-2 text-sm text-slate-500">No logo uploaded.</p>}
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">
             {logo.isPending ? 'Uploading…' : 'Choose image'}<input type="file" accept="image/png,image/jpeg" onChange={pickLogo} disabled={logo.isPending} className="sr-only" /></label>
           <p className="mt-1 text-xs text-slate-500">PNG or JPEG, up to 1 MB. Appears on every PDF.</p>
           {logo.isSuccess && <Notice tone="success" className="mt-2">Logo updated.</Notice>}
           {(logoErr || logo.error) && <Notice className="mt-2">{logoErr ?? errorMessage(logo.error)}</Notice>}</Card>
         <Card><h2 className="mb-2 font-semibold">Your account</h2><p className="text-sm text-slate-600">{me.data?.email}</p><p className="mb-3 text-xs text-slate-500">Role: {me.data?.role}</p>
-          {isDev ? <Notice tone="info">Signed in with the developer login. Password changes apply to real Supabase accounts only.</Notice> : <>
-            <Field label="New password"><Input type="password" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" /></Field>
+          {isDev ? <Notice tone="info">Signed in with the developer login, which has no password. Sign in with email and password to change one.</Notice> : <>
+            <Field label="Current password"><Input type="password" value={curPw} onChange={e => setCurPw(e.target.value)} autoComplete="current-password" /></Field>
+            <Field label="New password" className="mt-2"><Input type="password" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" /></Field>
             <Button variant="secondary" className="mt-2" loading={pwBusy} onClick={changePw}>Change password</Button>
             {pwMsg && <Notice tone={pwMsg.ok ? 'success' : 'error'} className="mt-2">{pwMsg.text}</Notice>}</>}</Card>
       </div>

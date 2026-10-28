@@ -1,8 +1,7 @@
 import axios, { AxiosError } from 'axios'
 import { File, Paths } from 'expo-file-system'
 import { config } from './config'
-import { supabase } from './supabase'
-import { accessToken, getDevSession, signOut, type DevSession, type DevUser } from './auth'
+import { accessToken, refresh, type AuthResponse, type DevUser } from './auth'
 import { syncStore } from './store'
 import { labelForKey, type Client, type EngineerDashboard, type Me, type Paged, type Report, type ReportFields, type ReportListItem, type SubmitResult } from './types'
 
@@ -15,16 +14,16 @@ http.interceptors.response.use(
     if (error.response && syncStore.get().net !== 'online') syncStore.set({ net: 'online' })
     const cfg = error.config as (typeof error.config & { _retried?: boolean }) | undefined
     if (error.response?.status === 401 && cfg && !cfg._retried) {
-      if (getDevSession()) { await signOut(); return Promise.reject(error) }          // dev token expired / API restarted
+      // access token expired early or the API restarted with a new key: refresh once and retry.
+      // If the API refuses the refresh token, refresh() signs out (back to login; drafts stay on the phone).
       const token = await refreshedToken()
       if (token) { cfg._retried = true; cfg.headers.Authorization = `Bearer ${token}`; return http(cfg) }
-      await signOut()                                                                // session is gone: back to login, drafts stay
     }
     return Promise.reject(error)
   })
 
 async function refreshedToken(): Promise<string | null> {
-  try { const { data } = await supabase.auth.refreshSession(); return data.session?.access_token ?? null } catch { return null }
+  try { return await refresh() } catch { return null }   // offline: keep the session
 }
 
 export type Problem = { title?: string; detail?: string; status?: number; errors?: Record<string, string[]>; current?: Report }
@@ -41,9 +40,13 @@ export function errorMessage(e: unknown): string {
 
 export const api = {
   me: () => http.get<Me>('/me').then(r => r.data),
+  auth: {
+    login: (email: string, password: string) => axios.post<AuthResponse>(`${config.apiUrl}/auth/login`, { email, password }, { timeout: 20_000 }).then(r => r.data),
+    changePassword: (currentPassword: string, newPassword: string) => http.post('/auth/change-password', { currentPassword, newPassword }).then(() => undefined),
+  },
   dev: {
     users: () => axios.get<DevUser[]>(`${config.apiUrl}/dev/users`, { params: { role: 'engineer' }, timeout: 8000 }).then(r => r.data),
-    login: (userId: string) => axios.post<DevSession>(`${config.apiUrl}/dev/login`, { userId }, { timeout: 8000 }).then(r => r.data),
+    login: (userId: string) => axios.post<AuthResponse>(`${config.apiUrl}/dev/login`, { userId }, { timeout: 8000 }).then(r => r.data),
   },
   /** All active clients (pages through the API's 100-per-page limit). */
   allClients: async (): Promise<Client[]> => {
@@ -92,7 +95,7 @@ export const api = {
       catch (e) {
         const msg = String((e as Error)?.message ?? e)
         if (/signed out/.test(msg)) throw e
-        if (/401/.test(msg) && !getDevSession()) { const t = await refreshedToken(); if (t) return attempt(t) }
+        if (/401/.test(msg)) { const t = await refreshedToken(); if (t) return attempt(t) }
         if (/401|403/.test(msg)) throw new Error('Not allowed to download this report. Sign in again.')
         if (/404/.test(msg)) throw new Error('Report not found on the server.')
         if (/5\d\d/.test(msg)) throw new Error('The server could not create the PDF. Try again shortly.')
