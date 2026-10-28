@@ -1,6 +1,6 @@
 # Solar Maintenance — Engineer Mobile App (Expo)
 
-Expo SDK 58, Expo Router, TypeScript, React Hook Form + Zod, expo-sqlite (drafts and offline cache), react-native-signature-canvas, expo-sharing.
+Expo SDK 58, Expo Router, TypeScript, React Hook Form + Zod, expo-sqlite (drafts and offline cache), react-native-signature-canvas, @react-native-community/datetimepicker, expo-sharing.
 
 ## Run locally
 ```
@@ -34,10 +34,22 @@ src/components/       ui (Screen, Button, Toggle, banner, badges), SignaturePad
 ```
 
 ## Offline behaviour
-- Every field change is saved to SQLite after 1.2 s; "Save draft and exit" flushes immediately.
-- Drafts are never deleted by the app except on the success screen's Done (after the server confirmed) or by the engineer (long-press in Drafts).
-- Status badges: Local, Syncing, Synced, Submitting, Submitted, Failed (tap banner to retry), Conflict (choose mine/server).
-- Creating a report is idempotent on the device-generated `localId`; submitting twice returns the same report reference.
+- Every edit is saved to SQLite after 1.2 s, and immediately when the screen loses focus or the app goes to the background.
+- Drafts belong to the user who created them; another engineer signing in on the same phone neither sees nor syncs them.
+- Sync order per draft: create (idempotent on the device id) → fields (PUT with version) → signatures → submit (idempotent).
+  An edit made while a request is in flight is never marked as synced (edit-sequence check), so it is sent in the next pass.
+- A 409 caused by the phone's own earlier write (response lost) is resolved automatically; a real change by someone else shows a
+  field-by-field comparison and waits for the engineer's choice. Submission pauses until then.
+- A queued Submit stays "Submitting" through network errors and keeps retrying (backoff up to 10 min) until the server confirms.
+- "Submitted elsewhere": the server report was finalised from another device or by an admin; the local copy is kept read-only with a Discard button.
+- Drafts are deleted only by Done on the success screen (after the server confirmed) or by a long-press in Drafts; their signature files are deleted with them.
+- Badges: Saved on phone, Syncing, Synced, Submitting, Submitted, Sync failed (tap the banner or Sync now), Conflict, Submitted elsewhere.
+
+## Known limitations
+- The Supabase session is stored in the expo-sqlite key-value store, not the encrypted SecureStore (Supabase sessions exceed SecureStore's 2 KB value limit). Phones should use a screen lock.
+- Drafts started on another device are not listed on this phone (server-side drafts are not downloaded).
+- `usesCleartextTraffic` is on for the local HTTP API; turn it off for production builds that use HTTPS.
+- Keyboard avoidance and the native date picker need checking on a real device.
 
 ## Builds
 - `eas build -p android --profile preview` → APK for internal testing against staging.

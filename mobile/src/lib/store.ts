@@ -4,11 +4,12 @@ import { useSyncExternalStore } from 'react'
 export function createStore<T>(initial: T) {
   let state = initial
   const listeners = new Set<() => void>()
+  const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
   return {
     get: () => state,
     set: (patch: Partial<T> | ((s: T) => Partial<T>)) => { state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) }; listeners.forEach(l => l()) },
-    subscribe: (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } },
-    use: <R,>(sel: (s: T) => R) => useSyncExternalStore(listeners.add.bind(listeners) && ((l) => { listeners.add(l); return () => { listeners.delete(l) } }), () => sel(state), () => sel(state)),
+    subscribe,
+    use: <R,>(sel: (s: T) => R) => useSyncExternalStore(subscribe, () => sel(state), () => sel(state)),
   }
 }
 

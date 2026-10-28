@@ -3,6 +3,7 @@ import { Alert, Text } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { api } from '../../../lib/api'
 import { clientsCache, drafts } from '../../../db'
+import { currentUserId } from '../../../lib/auth'
 import { addDays, fmtDate, generateUuid, todayIso, type Client } from '../../../lib/types'
 import { Button, Card, Loading, Row, Screen, Title } from '../../../components/ui'
 import { colors, font } from '../../../theme'
@@ -14,14 +15,16 @@ export default function ClientDetails() {
 
   const start = async () => {
     if (!c) return
-    const existing = (await drafts.all()).find(d => d.clientId === c.id && d.syncState !== 'submitted')
-    if (existing) { Alert.alert('Draft exists', `A draft for ${c.name} (visit ${fmtDate(existing.fields.visitDate)}) is already open.`, [{ text: 'Open draft', onPress: () => router.push(`/(app)/reports/${existing.localId}/section/1`) }, { text: 'Start new', onPress: () => void create() }, { text: 'Cancel', style: 'cancel' }]); return }
+    const owner = currentUserId(); if (!owner) return
+    const existing = (await drafts.all(owner)).find(d => d.clientId === c.id && !['submitted', 'elsewhere'].includes(d.syncState))
+    if (existing) { Alert.alert('Draft exists', `A draft for ${c.name} (visit ${fmtDate(existing.fields.visitDate)}) is already open.`, [{ text: 'Open draft', onPress: () => router.push(`/(app)/reports/${existing.localId}/review`) }, { text: 'Start new', onPress: () => void create() }, { text: 'Cancel', style: 'cancel' }]); return }
     await create()
   }
   const create = async () => {
     if (!c) return
     const visit = todayIso()
-    const d = await drafts.create({ localId: generateUuid(), clientId: c.id, clientName: c.name, fields: { visitDate: visit, previousMaintenanceDate: c.previousMaintenanceDate ?? null, technicianCount: 1, nextVisitDate: addDays(visit, 90) } })
+    const owner = currentUserId(); if (!owner) return
+    const d = await drafts.create({ localId: generateUuid(), ownerUserId: owner, clientId: c.id, clientName: c.name, fields: { visitDate: visit, previousMaintenanceDate: c.previousMaintenanceDate ?? null, technicianCount: 1, nextVisitDate: addDays(visit, 90) } })
     router.replace(`/(app)/reports/${d.localId}/section/1`)
   }
   if (!c) return <Screen><Loading /></Screen>

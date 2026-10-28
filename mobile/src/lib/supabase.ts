@@ -6,8 +6,3 @@ import { config } from './config'
 export const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
   auth: { storage: AsyncStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
 })
-
-export async function accessToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
-}

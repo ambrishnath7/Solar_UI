@@ -65,15 +65,40 @@ export const SECTIONS: SectionDef[] = [
 ]
 export const SECTION_8_TITLE = 'Observations and Issues'
 
-export const addDays = (iso: string, days: number) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return todayIso()
-  const d = new Date(iso + 'T00:00:00')
-  if (isNaN(d.getTime())) return todayIso()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+/** Local calendar date as YYYY-MM-DD (never toISOString, which is UTC and shifts the day in IST). */
+export const toIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+/** Parses YYYY-MM-DD as a local date; null when it is not a real calendar date (e.g. 2026-02-30). */
+export function parseIso(iso?: string | null): Date | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d ? dt : null
 }
-export const todayIso = () => new Date().toISOString().slice(0, 10)
-export const fmtDate = (d?: string | null) => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
+export const isValidIso = (iso?: string | null) => parseIso(iso) !== null
+export const todayIso = () => toIso(new Date())
+export const addDays = (iso: string, days: number) => {
+  const d = parseIso(iso) ?? new Date()
+  d.setDate(d.getDate() + days)
+  return toIso(d)
+}
+export const fmtDate = (d?: string | null) => {
+  if (!d) return '—'
+  const dt = d.length === 10 ? parseIso(d) : new Date(d)
+  return dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : d
+}
+
+/** Human labels for every report field (validation messages, conflict diffs). */
+export const FIELD_LABELS: Record<string, string> = {
+  visitDate: 'Visit date', previousMaintenanceDate: 'Previous maintenance date', technicianCount: 'Number of technicians',
+  s8GeneralObservations: '8. General observations', s8ActionRequired: '8. Action required', nextVisitDate: '8. Next visit date', clientRepName: 'Client representative name',
+  ...Object.fromEntries(SECTIONS.flatMap(s => [...s.rows.map(r => [r.key, `${s.n}. ${r.label}`]), [s.remarks, `${s.n}. ${s.remarksLabel ?? 'Remarks'}`]])),
+}
+/** Maps server error keys like "Fields.S6TotalGenerationKwh" to a field label. */
+export function labelForKey(key: string): string {
+  const k = key.replace(/^\$?\.?fields\./i, '')
+  const camel = k.charAt(0).toLowerCase() + k.slice(1)
+  return FIELD_LABELS[camel] ?? FIELD_LABELS[k] ?? k
+}
 
 export function generateUuid(): string {
   const bytes = new Uint8Array(16)

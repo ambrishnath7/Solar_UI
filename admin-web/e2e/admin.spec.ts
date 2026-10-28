@@ -5,7 +5,7 @@ const password = process.env.E2E_ADMIN_PASSWORD
 
 test('unauthenticated visit redirects to login', async ({ page }) => {
   await page.goto('/')
-  await expect(page).toHaveURL(/\/login$/)
+  await expect(page).toHaveURL(/\/login(\?.*)?$/)   // keeps ?from=/ so the user returns after signing in
   await expect(page.getByRole('heading', { name: 'Solar Maintenance' })).toBeVisible()
 })
 
@@ -13,13 +13,13 @@ test('wrong password shows an error from Supabase Auth', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('Email').fill('nobody@example.com')
   await page.getByLabel('Password').fill('definitely-wrong')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.locator('.bg-red-50')).toContainText(/invalid|credentials/i, { timeout: 15_000 })
 })
 
 test('empty form shows validation messages', async ({ page }) => {
   await page.goto('/login')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByText('Enter a valid email')).toBeVisible()
   await expect(page.getByText('Password is required')).toBeVisible()
 })
@@ -31,7 +31,7 @@ test.describe('authenticated admin', () => {
     await page.goto('/login')
     await page.getByLabel('Email').fill(email!)
     await page.getByLabel('Password').fill(password!)
-    await page.getByRole('button', { name: 'Sign in' }).click()
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 20_000 })
   })
 

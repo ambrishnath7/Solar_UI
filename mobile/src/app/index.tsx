@@ -1,8 +1,13 @@
 import { ActivityIndicator, Text, View } from 'react-native'
+import { Redirect } from 'expo-router'
+import { authStore } from '../lib/auth'
 import { colors } from '../theme'
 
-/** Splash: the root layout redirects to login or the app once the session is known. */
+/** Splash: shown while the session is restored, then redirects to the app or the login screen. */
 export default function Splash() {
+  const status = authStore.use(s => s.status)
+  if (status === 'in') return <Redirect href="/(app)" />
+  if (status === 'out') return <Redirect href="/(auth)/login" />
   return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, gap: 16 }}>
     <Text style={{ fontSize: 28, fontWeight: '800', color: '#fff' }}>Solar Maintenance</Text>
     <Text style={{ color: '#FFF7E6' }}>Shree Abhi Electricals & Engineering</Text>

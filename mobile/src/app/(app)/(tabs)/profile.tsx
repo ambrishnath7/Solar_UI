@@ -1,0 +1,40 @@
+import { useState } from 'react'
+import { Alert, Text } from 'react-native'
+import { useQuery } from '@tanstack/react-query'
+import Constants from 'expo-constants'
+import { api } from '../../../lib/api'
+import { supabase } from '../../../lib/supabase'
+import { authStore, signOut } from '../../../lib/auth'
+import { config } from '../../../lib/config'
+import { syncStore } from '../../../lib/store'
+import { drafts } from '../../../db'
+import { Button, Card, Field, Input, Row, Screen, Title } from '../../../components/ui'
+import { colors, font, space } from '../../../theme'
+
+export default function Profile() {
+  const me = useQuery({ queryKey: ['me'], queryFn: api.me })
+  const lastSync = syncStore.use(s => s.lastSyncAt); const net = syncStore.use(s => s.net)
+  const isDev = authStore.use(s => s.dev); const owner = authStore.use(s => s.userId)
+  const [pw, setPw] = useState(''); const [msg, setMsg] = useState<string | null>(null)
+  const changePw = async () => { if (pw.length < 8) return setMsg('At least 8 characters'); const { error } = await supabase.auth.updateUser({ password: pw }); setMsg(error ? error.message : 'Password changed'); if (!error) setPw('') }
+  const logout = async () => {
+    const mine = owner ? await drafts.all(owner) : []
+    if (mine.some(d => d.syncState === 'submitting')) {
+      Alert.alert('Submission in progress', 'A report is still being submitted. Stay signed in until it shows Submitted, otherwise it cannot finish.')
+      return
+    }
+    const unsynced = owner ? await drafts.countUnsynced(owner) : 0
+    Alert.alert('Sign out?', unsynced
+      ? `${unsynced} draft(s) are NOT fully on the server. They stay on this phone, hidden from other users, and sync only after YOU sign in again.`
+      : 'Your drafts stay on this phone.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => void signOut() }])
+  }
+  return <Screen>
+    <Title sub={me.data?.email ?? ''}>{me.data?.engineerName ?? 'Engineer'}</Title>
+    <Card><Row k="Role" v={me.data?.role} /><Row k="Connection" v={net} /><Row k="Last sync" v={lastSync ? new Date(lastSync).toLocaleTimeString('en-IN') : '—'} /><Row k="App version" v={Constants.expoConfig?.version} /><Row k="API" v={config.apiUrl.replace(/^https?:\/\//, '')} /></Card>
+    {isDev && <Card style={{ borderColor: colors.warn, backgroundColor: colors.warnSoft }}><Text style={{ fontWeight: '800', color: colors.warn }}>Developer sign-in (local testing)</Text></Card>}
+    {!isDev && <Card><Text style={{ fontWeight: '800', fontSize: font.large, marginBottom: space.sm }}>Change password</Text>
+      <Field label="New password"><Input value={pw} onChangeText={setPw} secureTextEntry autoComplete="new-password" /></Field>
+      {msg && <Text style={{ color: colors.muted, marginBottom: space.sm }}>{msg}</Text>}<Button title="Update password" variant="secondary" onPress={changePw} /></Card>}
+    <Button title="Sign out" variant="danger" onPress={logout} />
+  </Screen>
+}

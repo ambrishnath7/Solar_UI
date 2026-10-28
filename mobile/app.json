@@ -20,8 +20,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.shreeabhi.solarmaintenance",
-      "usesCleartextTraffic": true
+      "package": "com.shreeabhi.solarmaintenance"
     },
     "web": {
       "output": "static",
@@ -40,7 +39,8 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 96
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": false,

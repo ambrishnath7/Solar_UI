@@ -1,31 +1,29 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { authStore, initAuth } from '../lib/auth'
 import { startSyncEngine } from '../sync/engine'
 import { colors } from '../theme'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } })
 
 export default function RootLayout() {
-  const [session, setSession] = useState<Session | null | undefined>(undefined)
+  const status = authStore.use(s => s.status)
   const segments = useSegments(); const router = useRouter()
 
+  useEffect(() => initAuth(), [])
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
-    return () => sub.subscription.unsubscribe()
-  }, [])
-  useEffect(() => { if (session) return startSyncEngine() }, [session])
+    if (status === 'in') return startSyncEngine()
+    if (status === 'out') queryClient.clear()            // never show the previous user's server data
+  }, [status])
   useEffect(() => {
-    if (session === undefined) return
+    if (status === 'loading') return
     const inAuth = segments[0] === '(auth)'
-    if (!session && !inAuth) router.replace('/(auth)/login')
-    else if (session && inAuth) router.replace('/(app)')
-  }, [session, segments, router])
+    if (status === 'out' && !inAuth) router.replace('/(auth)/login')
+    else if (status === 'in' && inAuth) router.replace('/(app)')          // the splash route redirects itself (src/app/index.tsx)
+  }, [status, segments, router])
 
   return <SafeAreaProvider><QueryClientProvider client={queryClient}>
     <StatusBar style="dark" />

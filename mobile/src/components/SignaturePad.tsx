@@ -1,30 +1,48 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { View, Text } from 'react-native'
 import SignatureScreen, { type SignatureViewRef } from 'react-native-signature-canvas'
 import { File, Paths } from 'expo-file-system'
 import { Button } from './ui'
-import { colors, space } from '../theme'
+import { generateUuid } from '../lib/types'
+import { colors, font, space } from '../theme'
 
-/** Captures a signature and writes it to a PNG file in the document directory. Returns the file URI. */
-export function SignaturePad({ title, fileName, onSaved, existingUri }: { title: string; fileName: string; onSaved: (uri: string) => void; existingUri?: string | null }) {
+/**
+ * Captures a signature and writes it to a NEW PNG file each time (an upload may still be reading the previous one).
+ * The draft store deletes superseded files. `onDrawing` lets the parent stop page scrolling while the finger is down.
+ */
+export function SignaturePad({ title, filePrefix, onSaved, existingUri, disabled, onDrawing }: {
+  title: string; filePrefix: string; onSaved: (uri: string) => Promise<void> | void; existingUri?: string | null; disabled?: boolean; onDrawing?: (drawing: boolean) => void
+}) {
   const ref = useRef<SignatureViewRef>(null)
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
+  const [busy, setBusy] = useState(false)
   const handleOK = async (dataUrl: string) => {
-    const b64 = dataUrl.replace(/^data:image\/png;base64,/, '')
-    const file = new File(Paths.document, fileName)
-    if (file.exists) file.delete()
-    file.create()
-    await file.write(b64, { encoding: 'base64' })
-    onSaved(file.uri)
+    try {
+      const b64 = dataUrl.replace(/^data:image\/png;base64,/, '')
+      if (!b64) throw new Error('empty')
+      const file = new File(Paths.document, `${filePrefix}-${generateUuid()}.png`)
+      file.create()
+      await file.write(b64, { encoding: 'base64' })
+      await onSaved(file.uri)
+      setMsg({ text: 'Signature saved', ok: true })
+    } catch {
+      setMsg({ text: 'Could not save the signature. Try again.', ok: false })
+    } finally { setBusy(false) }
   }
   const style = `.m-signature-pad { box-shadow: none; border: none; } .m-signature-pad--body { border: none; } .m-signature-pad--footer { display: none; } body,html { background: #fff; }`
   return <View style={{ marginBottom: space.lg }}>
-    <Text style={{ fontSize: 17, fontWeight: '700', marginBottom: space.sm }}>{title}{existingUri ? '  ✓ saved' : ''}</Text>
-    <View style={{ height: 220, borderWidth: 2, borderColor: colors.border, borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff' }}>
-      <SignatureScreen ref={ref} onOK={handleOK} webStyle={style} backgroundColor="#ffffff" penColor={colors.text} descriptionText="" imageType="image/png" autoClear={false} />
-    </View>
-    <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
-      <Button title="Clear" variant="secondary" onPress={() => ref.current?.clearSignature()} style={{ flex: 1 }} />
-      <Button title={existingUri ? 'Re-save signature' : 'Save signature'} onPress={() => ref.current?.readSignature()} style={{ flex: 2 }} />
-    </View>
+    <Text style={{ fontSize: font.base, fontWeight: '800', marginBottom: space.sm, color: colors.text }}>{title}{existingUri ? '  ✓ saved' : ''}</Text>
+    {disabled ? <View style={{ height: 80, borderWidth: 2, borderColor: colors.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface }}>
+      <Text style={{ color: colors.muted }}>{existingUri ? 'Signed — report is locked' : 'Report is locked'}</Text></View> : <>
+      <View style={{ height: 220, borderWidth: 2, borderColor: colors.border, borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff' }}>
+        <SignatureScreen ref={ref} onOK={handleOK} onEmpty={() => { setBusy(false); setMsg({ text: 'The pad is empty — sign first, then tap Save.', ok: false }) }}
+          onBegin={() => onDrawing?.(true)} onEnd={() => onDrawing?.(false)}
+          webStyle={style} backgroundColor="#ffffff" penColor={colors.text} descriptionText="" imageType="image/png" autoClear={false} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
+        <Button title="Clear" variant="secondary" onPress={() => { ref.current?.clearSignature(); setMsg(null) }} style={{ flex: 1 }} />
+        <Button title={existingUri ? 'Save new signature' : 'Save signature'} loading={busy} onPress={() => { setBusy(true); setMsg(null); ref.current?.readSignature() }} style={{ flex: 2 }} />
+      </View></>}
+    {msg && <Text accessibilityRole="alert" style={{ marginTop: space.xs, fontWeight: '700', color: msg.ok ? colors.good : colors.danger }}>{msg.text}</Text>}
   </View>
 }
