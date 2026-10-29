@@ -44,6 +44,11 @@ export type Report = {
 }
 
 export type DashboardSummary = { visitsThisMonth: number; submittedReports: number; pendingDrafts: number; defectsIdentified: number; upcomingVisits: number; overdueVisits: number; amcExpiringSoon: number }
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
+export type Appointment = { id: string; clientId: string; clientName: string; siteLocation?: string | null; clientPhone?: string | null; engineerId: string; engineerName: string
+  scheduledDate: string; scheduledTime?: string | null; notes?: string | null; status: AppointmentStatus; reportId?: string | null; reportRef?: string | null; createdAt: string }
+/** scheduledTime: "HH:mm" or null */
+export type AppointmentUpsert = { clientId: string; engineerId: string; scheduledDate: string; scheduledTime?: string | null; notes?: string | null }
 export type ScheduleItem = { clientId: string; clientName: string; siteLocation?: string | null; nextDueDate?: string | null; previousMaintenanceDate?: string | null; amcStatus: AmcStatus; isOverdue: boolean }
 export type DefectSummaryItem = { field: string; label: string; count: number }
 export type Company = {

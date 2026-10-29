@@ -6,6 +6,11 @@ export function invalidateClientData(qc: QueryClient, clientId?: string) {
   if (clientId) void qc.invalidateQueries({ queryKey: ['client', clientId] })
 }
 
+/** Appointment changes show on the calendar, client pages and the upcoming list. */
+export function invalidateAppointments(qc: QueryClient) {
+  for (const key of ['appointments', 'schedule']) void qc.invalidateQueries({ queryKey: [key] })
+}
+
 /** A report change (e.g. admin correction) also moves the client's next due date and defect counts. */
 export function invalidateReportData(qc: QueryClient, reportId: string, clientId?: string) {
   void qc.invalidateQueries({ queryKey: ['report', reportId] })

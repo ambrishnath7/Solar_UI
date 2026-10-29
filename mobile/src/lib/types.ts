@@ -34,7 +34,10 @@ export type Report = {
 }
 export type ReportListItem = { id: string; reportRef?: string | null; status: ReportStatus; visitDate: string; nextVisitDate?: string | null; clientId: string; clientName: string; engineerName: string; defectCount: number; submittedAt?: string | null; updatedAt: string }
 export type SubmitResult = { id: string; reportRef: string; nextVisitDate: string; submittedAt: string; version: number }
-export type EngineerDashboard = { todayVisits: number; drafts: number; submittedThisMonth: number; upcoming: { clientId: string; clientName: string; siteLocation?: string | null; nextDueDate?: string | null; amcStatus: AmcStatus; isOverdue: boolean }[] }
+/** A visit the office assigned to this engineer (scheduledTime "HH:mm:ss" or null). */
+export type Appointment = { id: string; clientId: string; clientName: string; siteLocation?: string | null; clientPhone?: string | null; engineerId: string; engineerName: string
+  scheduledDate: string; scheduledTime?: string | null; notes?: string | null; status: 'scheduled' | 'completed' | 'cancelled'; reportId?: string | null; reportRef?: string | null }
+export type EngineerDashboard = { todayVisits: number; drafts: number; submittedThisMonth: number; upcoming: { clientId: string; clientName: string; siteLocation?: string | null; nextDueDate?: string | null; amcStatus: AmcStatus; isOverdue: boolean }[]; myVisits?: Appointment[] }
 export type Paged<T> = { items: T[]; page: number; pageSize: number; total: number }
 
 export type FieldType = 'yn' | 'gd' | 'num'

@@ -3,7 +3,7 @@ import type { DevUser } from './devAuth'
 import { accessToken, API_URL, logout, refresh, setSession, type AuthResponse } from './session'
 import { queryClient } from './queryClient'
 import { SECTIONS } from './types'
-import type { Client, ClientUpsert, Company, DashboardSummary, DefectSummaryItem, Engineer, Me, Paged, Report, ReportFields, ReportListItem, ScheduleItem, ShareLink } from './types'
+import type { Appointment, AppointmentUpsert, Client, ClientUpsert, Company, DashboardSummary, DefectSummaryItem, Engineer, Me, Paged, Report, ReportFields, ReportListItem, ScheduleItem, ShareLink } from './types'
 
 export { API_URL }
 
@@ -114,6 +114,22 @@ export const api = {
     pdfUrl: (id: string, download = false) => `${API_URL}/reports/${id}/pdf${download ? '?download=true' : ''}`,
     pdfBlob: (id: string) => http.get(`/reports/${id}/pdf`, { responseType: 'blob', timeout: 90_000 }).then(r => r.data as Blob, unblobError),
     shareLink: (id: string) => http.post<ShareLink>(`/reports/${id}/share-link`).then(r => r.data),
+  },
+  appointments: {
+    list: (p: { from: string; to: string; engineerId?: string; clientId?: string; status?: string }) => http.get<Appointment[]>('/appointments', { params: q(p) }).then(r => r.data),
+    create: (d: AppointmentUpsert) => http.post<Appointment>('/appointments', d).then(r => r.data),
+    update: (id: string, d: AppointmentUpsert) => http.put<Appointment>(`/appointments/${id}`, d).then(r => r.data),
+    cancel: (id: string, reason?: string) => http.post<Appointment>(`/appointments/${id}/cancel`, { reason: reason || null }).then(r => r.data),
+  },
+  /** All active clients, sorted by name (pages through the API's 100-per-page limit). */
+  activeClients: async (): Promise<Client[]> => {
+    const out: Client[] = []
+    for (let page = 1; page <= 100; page++) {
+      const r = (await http.get<Paged<Client>>('/clients', { params: { active: true, page, pageSize: 100, sort: 'name' } })).data
+      out.push(...r.items)
+      if (out.length >= r.total || r.items.length === 0) break
+    }
+    return out
   },
   dashboard: { summary: () => http.get<DashboardSummary>('/dashboard/summary').then(r => r.data) },
   schedule: {
